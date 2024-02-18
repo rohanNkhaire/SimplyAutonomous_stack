@@ -39,12 +39,10 @@ geometry_msgs::msg::PoseStamped LaneletMissionPlanner::transform_pose(const geom
 bool LaneletMissionPlanner::is_goal_valid(const geometry_msgs::msg::Pose& goal)
 {
   const auto goal_lanelet_pt = lanelet::utils::conversion::toLaneletPoint(goal.position);
-  RCLCPP_WARN(get_logger(), "DONE THIS FIRST!");
   lanelet::Lanelet closest_lanelet;
   if (!lanelet::utils::query::getClosestLanelet(road_lanelets_, goal, &closest_lanelet)) {
     return false;
   }
-  RCLCPP_WARN(get_logger(), "DONE THIS SECOND!");
   // check if goal is in road lanelet
   lanelet::Lanelet closest_road_lanelet;
   if (lanelet::utils::query::getClosestLanelet(
@@ -92,7 +90,6 @@ void LaneletMissionPlanner::map_callback(const autoware_auto_mapping_msgs::msg::
   lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_ptr_);
   road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
   lanelet_map_set = true;
-  RCLCPP_WARN(get_logger(), "Got MAP!");
 }
 
 void LaneletMissionPlanner::goal_pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg)
@@ -139,7 +136,8 @@ void LaneletMissionPlanner::goal_pose_callback(const geometry_msgs::msg::PoseSta
     RCLCPP_INFO(get_logger(), "Found a path containing %lu lanelets", shortest_path.size());
 
     // Store as Path
-    autoware_planning_msgs::msg::Path path_msg = LaneletMissionPlannerUtils::generate_path_points(continuous_lane, refined_goal);;
+    autoware_planning_msgs::msg::Path path_msg = LaneletMissionPlannerUtils::generate_path_points(continuous_lane, start_lanelet, goal_lanelet,
+                                                                                      start_pose_.position, goal_pose_.position);
     path_msg.header.frame_id = "map";
     path_msg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
 

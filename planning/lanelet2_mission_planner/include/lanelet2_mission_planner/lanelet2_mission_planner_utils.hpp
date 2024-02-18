@@ -69,7 +69,8 @@ namespace LaneletMissionPlannerUtils
 
   std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(lanelet::Lanelet&);
   autoware_planning_msgs::msg::Path generate_path_points(
-  const lanelet::LaneletSequence&, const geometry_msgs::msg::Pose&);
+  const lanelet::LaneletSequence&, lanelet::Lanelet&, lanelet::Lanelet&,
+  const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
 
   bool is_in_lane(const lanelet::ConstLanelet &, const lanelet::ConstPoint3d &);
   geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double);

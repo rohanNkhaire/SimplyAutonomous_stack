@@ -61,19 +61,48 @@ std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(lanelet::Lanele
 }
 
 autoware_planning_msgs::msg::Path generate_path_points(
-  const lanelet::LaneletSequence& continuous_lane, const geometry_msgs::msg::Pose& goal_point)
+  const lanelet::LaneletSequence& continuous_lane, lanelet::Lanelet& start_lanelet, lanelet::Lanelet& goal_lanelet,
+  const geometry_msgs::msg::Point& start_point, const geometry_msgs::msg::Point& goal_point)
 {
   autoware_planning_msgs::msg::Path path;
-
+  int lanelets_size = continuous_lane.lanelets().size() - 1;
   // Loop over each lanelet
-  for (auto& lanelet : continuous_lane.lanelets())
+  for (int i = 0; i <= lanelets_size; ++i)
   {
+    auto curr_lanelet = continuous_lane.lanelets().at(i);
+    const auto refined_center_line = lanelet::utils::generateFineCenterline(curr_lanelet, 1.0);
+    int wp_length = refined_center_line.size() - 1;
 
-    const auto refined_center_line = lanelet::utils::generateFineCenterline(lanelet, 1.0);
-    const int wp_length = refined_center_line.size() - 1;
+    int start_idx = 0; 
+    int end_idx = wp_length;
+
+    if (lanelets_size == 1)
+    {
+      start_lanelet.setCenterline(refined_center_line);
+      std::vector<geometry_msgs::msg::Point> centerline_points = convertCenterlineToPoints(start_lanelet);
+      start_idx = findNearestIndex(centerline_points, start_point);
+      end_idx = findNearestIndex(centerline_points, goal_point);
+    }
+    else
+    {
+      if (i == 0)
+      {
+        start_lanelet.setCenterline(refined_center_line);
+        std::vector<geometry_msgs::msg::Point> centerline_points = convertCenterlineToPoints(start_lanelet);
+        start_idx = findNearestIndex(centerline_points, start_point);
+      }
+
+      if (i == lanelets_size)
+      {
+        goal_lanelet.setCenterline(refined_center_line);
+        std::vector<geometry_msgs::msg::Point> centerline_points = convertCenterlineToPoints(goal_lanelet);
+        end_idx = findNearestIndex(centerline_points, goal_point);
+      }
+ 
+    }
 
     // Loop over each centerline point
-    for (int i = 0; i <= wp_length; i++)
+    for (int i = start_idx; i <= end_idx; i++)
     {
       autoware_planning_msgs::msg::PathPoint waypoints;
 
@@ -85,7 +114,7 @@ autoware_planning_msgs::msg::Path generate_path_points(
       center_point.y = basic_center_point.y();
       center_point.z = basic_center_point.z();
 
-      const double lane_yaw = lanelet::utils::getLaneletAngle(lanelet, center_point);
+      const double lane_yaw = lanelet::utils::getLaneletAngle(curr_lanelet, center_point);
       geometry_msgs::msg::Pose new_wp = convertBasicPoint3dToPose(basic_center_point, lane_yaw);
 
       waypoints.longitudinal_velocity_mps = 5.0;
@@ -143,9 +172,9 @@ void createGlobalLaneArrayMarker(const autoware_planning_msgs::msg::Path &lane_w
 {
   std_msgs::msg::ColorRGBA total_color;
   total_color.r = 0.5;
-  total_color.g = 0.7;
-  total_color.b = 1.0;
-  total_color.a = 0.9;
+  total_color.g = 1.0;
+  total_color.b = 0.5;
+  total_color.a = 1.0;
    
   visualization_msgs::msg::Marker lane_waypoint_marker;
   lane_waypoint_marker.header.frame_id = "map";
@@ -153,8 +182,8 @@ void createGlobalLaneArrayMarker(const autoware_planning_msgs::msg::Path &lane_w
   lane_waypoint_marker.ns = "global_lane_array_marker";
   lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
   lane_waypoint_marker.action = visualization_msgs::msg::Marker::ADD;
-  lane_waypoint_marker.scale.x = 1.0;
-  lane_waypoint_marker.scale.y = 1.0;
+  lane_waypoint_marker.scale.x = 2.0;
+  lane_waypoint_marker.scale.y = 2.0;
   lane_waypoint_marker.color = total_color;
   lane_waypoint_marker.frame_locked = true;
 
