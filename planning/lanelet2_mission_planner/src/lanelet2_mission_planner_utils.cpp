@@ -139,4 +139,36 @@ double calcSquaredDistance2d(const geometry_msgs::msg::Point& point1, const geom
   return dx * dx + dy * dy;
 }
 
+void createGlobalLaneArrayMarker(const autoware_planning_msgs::msg::Path &lane_waypoints_array, visualization_msgs::msg::MarkerArray& markerArray)
+{
+  std_msgs::msg::ColorRGBA total_color;
+  total_color.r = 0.5;
+  total_color.g = 0.7;
+  total_color.b = 1.0;
+  total_color.a = 0.9;
+   
+  visualization_msgs::msg::Marker lane_waypoint_marker;
+  lane_waypoint_marker.header.frame_id = "map";
+  lane_waypoint_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  lane_waypoint_marker.ns = "global_lane_array_marker";
+  lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
+  lane_waypoint_marker.action = visualization_msgs::msg::Marker::ADD;
+  lane_waypoint_marker.scale.x = 1.0;
+  lane_waypoint_marker.scale.y = 1.0;
+  lane_waypoint_marker.color = total_color;
+  lane_waypoint_marker.frame_locked = true;
+
+  int count = 0;
+  for (unsigned int i=0; i<lane_waypoints_array.points.size(); i++)
+  {
+    geometry_msgs::msg::Point point;
+    point = lane_waypoints_array.points.at(i).pose.position;
+    lane_waypoint_marker.points.push_back(point);
+
+    count++;
+  }
+  
+  markerArray.markers.push_back(lane_waypoint_marker);
+}
+
 } // namespace LaneletMissionPlannerUtils

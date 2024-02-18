@@ -1,5 +1,5 @@
-#ifndef LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_
-#define LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_
+#ifndef LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_
+#define LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_
 
 #include "lanelet2_mission_planner/lanelet2_mission_planner_utils.hpp"
 
@@ -22,6 +22,7 @@ private:
 
 	//Publisher
 	rclcpp::Publisher<autoware_planning_msgs::msg::Path>::SharedPtr global_path_pub_;
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_global_path_pub_;
 
 	// Callbacks
 	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg);

@@ -15,10 +15,12 @@
 #include <lanelet2_routing/RoutingCost.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
-// Autoware msgs
+// msgs
 #include <autoware_planning_msgs/msg/lanelet_route.hpp>
 #include <autoware_planning_msgs/msg/path.hpp>
 #include <autoware_planning_msgs/msg/path_point.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 
 // TF2
 #include <tf2/LinearMath/Quaternion.h>
@@ -73,6 +75,9 @@ namespace LaneletMissionPlannerUtils
   geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double);
   size_t findNearestIndex(std::vector<geometry_msgs::msg::Point>&, const geometry_msgs::msg::Point&);
   double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
+  void createGlobalLaneArrayMarker(const autoware_planning_msgs::msg::Path&, 
+  										visualization_msgs::msg::MarkerArray&);
+
 }
 
 #endif  // LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_HPP_

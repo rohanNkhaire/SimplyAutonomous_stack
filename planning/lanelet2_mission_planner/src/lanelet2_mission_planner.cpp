@@ -11,12 +11,13 @@ LaneletMissionPlanner::LaneletMissionPlanner() : Node("lanelet2_mission_planner"
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("/localization/kinematic_state", rclcpp::QoS(1),
     std::bind(&LaneletMissionPlanner::odom_callback, this, std::placeholders::_1));
   const auto durable_qos = rclcpp::QoS(1).transient_local();
-  map_sub_ = create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>("input/vector_map", durable_qos,
+  map_sub_ = create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>("/map/vector_map", durable_qos,
     std::bind(&LaneletMissionPlanner::map_callback, this, std::placeholders::_1));
   goal_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>("/goal_pose", rclcpp::QoS(1),
     std::bind(&LaneletMissionPlanner::goal_pose_callback, this, std::placeholders::_1));  
 
   global_path_pub_ = create_publisher<autoware_planning_msgs::msg::Path>("/lanelet_mission_planner/path", rclcpp::QoS{10});  
+  viz_global_path_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("/visual_global_path", rclcpp::QoS{1});
 
   setupTF();
 
@@ -38,11 +39,12 @@ geometry_msgs::msg::PoseStamped LaneletMissionPlanner::transform_pose(const geom
 bool LaneletMissionPlanner::is_goal_valid(const geometry_msgs::msg::Pose& goal)
 {
   const auto goal_lanelet_pt = lanelet::utils::conversion::toLaneletPoint(goal.position);
+  RCLCPP_WARN(get_logger(), "DONE THIS FIRST!");
   lanelet::Lanelet closest_lanelet;
   if (!lanelet::utils::query::getClosestLanelet(road_lanelets_, goal, &closest_lanelet)) {
     return false;
   }
-
+  RCLCPP_WARN(get_logger(), "DONE THIS SECOND!");
   // check if goal is in road lanelet
   lanelet::Lanelet closest_road_lanelet;
   if (lanelet::utils::query::getClosestLanelet(
@@ -90,6 +92,7 @@ void LaneletMissionPlanner::map_callback(const autoware_auto_mapping_msgs::msg::
   lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_ptr_);
   road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
   lanelet_map_set = true;
+  RCLCPP_WARN(get_logger(), "Got MAP!");
 }
 
 void LaneletMissionPlanner::goal_pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg)
@@ -140,7 +143,11 @@ void LaneletMissionPlanner::goal_pose_callback(const geometry_msgs::msg::PoseSta
     path_msg.header.frame_id = "map";
     path_msg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
 
-    // Publish the path
+    visualization_msgs::msg::MarkerArray visual_global_path;
+    LaneletMissionPlannerUtils::createGlobalLaneArrayMarker(path_msg, visual_global_path);
+
+    // Publish and visualize path
     global_path_pub_->publish(path_msg);
+    viz_global_path_pub_->publish(visual_global_path);
   }
 }
