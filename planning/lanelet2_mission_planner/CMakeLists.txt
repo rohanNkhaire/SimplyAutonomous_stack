@@ -6,16 +6,20 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 # find dependencies
-find_package(ament_cmake_auto REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+find_package(lanelet2_extension REQUIRED)
 
-add_executable(lanelet2_mission_planner src/lanelet2_mission_planner.cpp)
-target_include_directories(lanelet2_mission_planner PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_features(lanelet2_mission_planner PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+include_directories(include)
+add_executable(lanelet2_mission_planner src/lanelet2_mission_planner.cpp
+                                        src/lanelet2_mission_planner_node.cpp
+                                        src/lanelet2_mission_planner_utils
+                                        )
+
+ament_target_dependencies(lanelet2_mission_planner rclcpp geometry_msgs autoware_planning_msgs 
+                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension)
 
 install(TARGETS lanelet2_mission_planner
   DESTINATION lib/${PROJECT_NAME})

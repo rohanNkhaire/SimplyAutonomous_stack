@@ -1,8 +1,7 @@
 #include "lanelet2_mission_planner/lanelet2_mission_planner_utils.hpp"
 
-LaneletMissionPlannerUtils::LaneletMissionPlannerUtils()
+namespace LaneletMissionPlannerUtils
 {
-}
 
 double project_goal_to_map(const lanelet::Lanelet & lanelet_component, const lanelet::ConstPoint3d & goal_point)
 {
@@ -27,8 +26,8 @@ geometry_msgs::msg::Pose get_closest_centerline_pose(
 
   const double lane_yaw = lanelet::utils::getLaneletAngle(closest_lanelet, point.position);
 
-  const auto nearest_idx =
-    motion_utils::findNearestIndex(convertCenterlineToPoints(closest_lanelet), point.position);
+  std::vector<geometry_msgs::msg::Point> centerline_points = convertCenterlineToPoints(closest_lanelet);
+  const auto nearest_idx = findNearestIndex(centerline_points, point.position);
   const auto nearest_point = closest_lanelet.centerline()[nearest_idx];
 
   return convertBasicPoint3dToPose(nearest_point, lane_yaw);
@@ -48,7 +47,7 @@ geometry_msgs::msg::Pose convertBasicPoint3dToPose(
   return pose;
 }
 
-std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(const lanelet::Lanelet & lanelet)
+std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(lanelet::Lanelet & lanelet)
 {
   std::vector<geometry_msgs::msg::Point> centerline_points;
   for (const auto & point : lanelet.centerline()) {
@@ -61,10 +60,10 @@ std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(const lanelet::
   return centerline_points;
 }
 
-autoware_planning_msgs::msg::PathPoint Ll2GlobalPlannerNl::generate_path_points(
-  const LaneletSequence& continuous_lane, const geometry_msgs::msg::Pose& goal_point)
+autoware_planning_msgs::msg::Path generate_path_points(
+  const lanelet::LaneletSequence& continuous_lane, const geometry_msgs::msg::Pose& goal_point)
 {
-  autoware_planning_msgs::msg::PathPoint waypoints;
+  autoware_planning_msgs::msg::Path path;
 
   // Loop over each lanelet
   for (auto& lanelet : continuous_lane.lanelets())
@@ -76,17 +75,27 @@ autoware_planning_msgs::msg::PathPoint Ll2GlobalPlannerNl::generate_path_points(
     // Loop over each centerline point
     for (int i = 0; i <= wp_length; i++)
     {
+      autoware_planning_msgs::msg::PathPoint waypoints;
+
       auto point = refined_center_line[i];
+      const lanelet::BasicPoint3d basic_center_point = point.basicPoint();
 
-      const double lane_yaw = lanelet::utils::getLaneletAngle(lanelet, point);
-      geometry_msgs::msg::Pose new_wp convertBasicPoint3dToPose(nearest_point, lane_yaw);
+      geometry_msgs::msg::Point center_point;
+      center_point.x = basic_center_point.x();
+      center_point.y = basic_center_point.y();
+      center_point.z = basic_center_point.z();
 
-      waypoints.longitudinal_velocity_mps = speed_limit.speedLimit.value();
-      waypoints.points.push_back(new_wp);
+      const double lane_yaw = lanelet::utils::getLaneletAngle(lanelet, center_point);
+      geometry_msgs::msg::Pose new_wp = convertBasicPoint3dToPose(basic_center_point, lane_yaw);
+
+      waypoints.longitudinal_velocity_mps = 5.0;
+      waypoints.pose = new_wp;
+
+      path.points.push_back(waypoints);
     }
   }
 
-  return waypoints;
+  return path;
 }
 
 bool is_in_lane(const lanelet::ConstLanelet & lanelet, const lanelet::ConstPoint3d & point)
@@ -123,9 +132,11 @@ size_t findNearestIndex(std::vector<geometry_msgs::msg::Point>& points, const ge
 
 double calcSquaredDistance2d(const geometry_msgs::msg::Point& point1, const geometry_msgs::msg::Point& point2)
 {
-  const auto p1 = point1.position;
-  const auto p2 = point2.position;
+  const auto p1 = point1;
+  const auto p2 = point2;
   const auto dx = p1.x - p2.x;
   const auto dy = p1.y - p2.y;
   return dx * dx + dy * dy;
 }
+
+} // namespace LaneletMissionPlannerUtils

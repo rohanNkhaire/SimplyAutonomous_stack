@@ -1,3 +1,6 @@
+#ifndef LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_HPP_
+#define LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_HPP_
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/logging.hpp>
 
@@ -12,14 +15,25 @@
 #include <lanelet2_routing/RoutingCost.h>
 #include <lanelet2_traffic_rules/TrafficRulesFactory.h>
 
+// Autoware msgs
+#include <autoware_planning_msgs/msg/lanelet_route.hpp>
+#include <autoware_planning_msgs/msg/path.hpp>
+#include <autoware_planning_msgs/msg/path_point.hpp>
+
+// TF2
+#include <tf2/LinearMath/Quaternion.h>
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2/exceptions.h"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
+
 #include <vector>
 #include <memory>
 #include <cmath>
 
-class LaneletMissionPlannerUtils
+namespace LaneletMissionPlannerUtils
 {
-public:
-	explicit LaneletMissionPlannerUtils()
 
 	constexpr double pi = 3.14159265358979323846;
 
@@ -51,12 +65,14 @@ public:
   geometry_msgs::msg::Pose convertBasicPoint3dToPose(
   const lanelet::BasicPoint3d &, const double);
 
-  std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(const lanelet::Lanelet&);
-  autoware_planning_msgs::msg::PathPoint Ll2GlobalPlannerNl::generate_path_points(
-  const LaneletSequence&, const geometry_msgs::msg::Pose&);
+  std::vector<geometry_msgs::msg::Point> convertCenterlineToPoints(lanelet::Lanelet&);
+  autoware_planning_msgs::msg::Path generate_path_points(
+  const lanelet::LaneletSequence&, const geometry_msgs::msg::Pose&);
 
   bool is_in_lane(const lanelet::ConstLanelet &, const lanelet::ConstPoint3d &);
   geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double);
   size_t findNearestIndex(std::vector<geometry_msgs::msg::Point>&, const geometry_msgs::msg::Point&);
   double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
 }
+
+#endif  // LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_HPP_

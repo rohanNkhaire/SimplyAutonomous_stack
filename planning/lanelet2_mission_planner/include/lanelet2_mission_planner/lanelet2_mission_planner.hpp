@@ -1,32 +1,24 @@
+#ifndef LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_
+#define LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_UTILS_
 
 #include "lanelet2_mission_planner/lanelet2_mission_planner_utils.hpp"
 
 // ROS2 messages
-#include <nav_msgs/Odometry.hpp>
-#include <autoware_planning_msgs/msg/lanelet_route.hpp>
-#include <autoware_planning_msgs/msg/path.hpp>
-#include <autoware_planning_msgs/msg/path_point.hpp>
+#include <nav_msgs/msg/odometry.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <geometry_msgs/msg/pose.hpp>
-#include <autoware_auto_mapping_msgs/msg/h_a_d_map_bin.hpp>
-
-// TF2
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
-#include "tf2/exceptions.h"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_ros/buffer.h"
-#include "tf2_ros/transform_broadcaster.h"
+#include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
 
 class LaneletMissionPlanner : public rclcpp::Node
 {
 public:
-	explicit LaneletMissionPlanner()
+	explicit LaneletMissionPlanner();
 
 private:
 	//Subscribers
-	rclcpp::Subscription<nav_msgs::msg::Odometry>::ConstSharedPtr odom_sub_;
-	rclcpp::Subscription<autoware_auto_mapping_msgs::msg::HADMapBin>::ConstSharedPtr map_sub_;
-	rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::ConstSharedPtr goal_pose_sub_;
+	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
+	rclcpp::Subscription<autoware_auto_mapping_msgs::msg::HADMapBin>::SharedPtr map_sub_;
+	rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pose_sub_;
 
 	//Publisher
 	rclcpp::Publisher<autoware_planning_msgs::msg::Path>::SharedPtr global_path_pub_;
@@ -34,7 +26,7 @@ private:
 	// Callbacks
 	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg);
   void map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg);
-  void goal_pose_callback(const geometry_msgs::msg::ConstSharedPtr msg);
+  void goal_pose_callback(const geometry_msgs::msg::PoseStamped::ConstSharedPtr msg);
 
 	// Variables
 	nav_msgs::msg::Odometry odometry_;
@@ -47,7 +39,6 @@ private:
 	// TF2
 	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -56,7 +47,9 @@ private:
   lanelet::ConstLanelets road_lanelets_;
 
 	// Functions
-	geometry_msgs::msg::PoseStamped transform_pose(const PoseStamped&)
-	bool is_goal_valid(const geometry_msgs::msg::Pose&)
+	geometry_msgs::msg::PoseStamped transform_pose(const geometry_msgs::msg::PoseStamped&);
+	bool is_goal_valid(const geometry_msgs::msg::Pose&);
 	void setupTF();
 };
+
+#endif //LANELET_MISSION_PLANNER__LANELET_MISSION_PLANNER_HPP_
