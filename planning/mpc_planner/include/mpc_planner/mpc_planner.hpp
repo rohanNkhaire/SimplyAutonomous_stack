@@ -28,6 +28,7 @@
 
 #include <memory>
 #include <cmath>
+#include <array>
 
 // MPC
 	constexpr int num_states = 4;
@@ -38,6 +39,8 @@
   constexpr int ineq_c = 0;
   constexpr int eq_c = 0;
   double ts = 0.1;
+
+	static constexpr double radius_inf = 5.0e2;
 
 	mpc::NLMPC<
       num_states, num_inputs, num_output,
@@ -89,11 +92,13 @@ private:
   lanelet::ConstLanelets road_lanelets_;
 
   // Functions
-	geometry_msgs::msg::Pose setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
+	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
 	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
+	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);
+	double getCurvature(std::array<int, 3>&, const autoware_planning_msgs::msg::Path&);
   void setMPCProblem();
-
-
+	size_t findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>&, const geometry_msgs::msg::Point&);
+	double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
 	
 };
 

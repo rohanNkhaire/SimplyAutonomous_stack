@@ -69,22 +69,25 @@ void MPCPlanner::timer_callback()
 		// Get current index on the global path
 		int curr_index = getCurrentIndex(path_msg_.points, odometry_);
 
-		// Set the goal point
-		geometry_msgs::msg::Pose goal_pose = setGoal(path_msg_, odometry_.twist.twist.linear.x, curr_index);
+		// Set the goal point and goal index in the global path
+		std::tuple<geometry_msgs::msg::Pose, int> goal_tuple = setGoal(path_msg_, odometry_.twist.twist.linear.x, curr_index);
+
+		// Set desired velocity
+		double ref_vel = setVelocity(std::get<1>(goal_tuple), path_msg_);
 
 		// Get Goal Yaw
     tf2::Quaternion goal_quat_;
     tf2::Matrix3x3 m;
-    tf2::fromMsg(goal_pose.orientation, goal_quat_);
+    tf2::fromMsg(std::get<0>(goal_tuple).orientation, goal_quat_);
     m.setRotation(goal_quat_);
     double goal_roll, goal_pitch, goal_yaw;
     m.getRPY(goal_roll, goal_pitch, goal_yaw);
 
 		// Set the reference for MPC
-		yref(0) = goal_pose.position.x;
-		yref(1) = goal_pose.position.y;
+		yref(0) = std::get<0>(goal_tuple).position.x;
+		yref(1) = std::get<0>(goal_tuple).position.y;
 		yref(3) = goal_yaw;
-		yref(4) = 5.0;
+		yref(4) = ref_vel;
 
 		// Get Vehicle Yaw
     tf2::Quaternion veh_quat_;
@@ -107,8 +110,18 @@ void MPCPlanner::timer_callback()
 		auto r = controller.getLastResult();
 
 		r = controller.step(modelX, r.cmd);
-
+		auto control_seq = controller.getOptimalSequence();
+	
 		std::cout << controller.getExecutionStats();
+
+		autoware_planning_msgs::msg::Trajectory local_path = getLocalPathFromMPC(control_seq);
+
+		// Publish the trajectory
+		trajectory_pub_->publish(local_path);
+
+		// Publish visualization
+
+
 	}
 }
 
@@ -154,14 +167,11 @@ void MPCPlanner::setMPCProblem()
         							}
 
         							return cost;
-									
-									
-									return x.array().square().sum() + u.array().square().sum(); });
-
+											 });
 																 
 }
 
-geometry_msgs::msg::Pose MPCPlanner::setGoal(autoware_planning_msgs::msg::Path& path, double& curr_vel, int& curr_idx)
+std::tuple<geometry_msgs::msg::Pose, int> MPCPlanner::setGoal(autoware_planning_msgs::msg::Path& path, double& curr_vel, int& curr_idx)
 {
 	// Set goal such that we plan for 4s minimum
 	// We take goal from the global planner
@@ -171,16 +181,82 @@ geometry_msgs::msg::Pose MPCPlanner::setGoal(autoware_planning_msgs::msg::Path& 
 	int goal_idx = std::min(curr_idx + int(std::round(curr_vel*LOOK_AHEAD_TIME)), min_goal_idx);
 	geometry_msgs::msg::Pose goal_pose = path.points.at(goal_idx).pose;
 
-	return goal_pose;
+	return std::make_tuple(goal_pose, goal_idx);
 }
 
-int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& path_point, nav_msgs::msg::Odometry& veh_odom)
+int MPCPlanner::getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& path_point, nav_msgs::msg::Odometry& veh_odom)
 {
 	int curr_index = findNearestIndex(path_point, veh_odom.pose.pose.position);
 	return curr_index;
 }
 
-size_t findNearestIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& points, const geometry_msgs::msg::Point& point)
+double MPCPlanner::setVelocity(const int& goal_idx, const autoware_planning_msgs::msg::Path& path)
+{
+	// If end of path
+	if (goal_idx == (path.points.size() - 1))
+	{
+		return 0.0;
+	}
+
+	if (goal_idx == 0)
+	{
+		return 5.0;
+	}
+
+	// calculate suitable velocity based on points before and after goal_idx
+	std::array<int, 3> curve_points;
+	curve_points[0] = goal_idx - 1;
+	curve_points[1] = goal_idx;
+	curve_points[2] = goal_idx + 1;
+
+	// Get curvature based on prev and ahead points
+	double curvature = getCurvature(curve_points, path);
+
+	// Set reference velocity according to the curvature
+	double ref_vel = (curvature < radius_inf) ? sqrt(1.0 * curvature) : 5.0;
+
+	return ref_vel;
+
+}
+
+double MPCPlanner::getCurvature(std::array<int, 3>& pt_idx, const autoware_planning_msgs::msg::Path& path)
+{
+	const double d = 2 * ((path.points.at(pt_idx[0]).pose.position.y - path.points.at(pt_idx[2]).pose.position.y) * 
+												(path.points.at(pt_idx[0]).pose.position.x - path.points.at(pt_idx[1]).pose.position.x) - 
+												(path.points.at(pt_idx[0]).pose.position.y - path.points.at(pt_idx[1]).pose.position.y) * 
+												(path.points.at(pt_idx[0]).pose.position.x - path.points.at(pt_idx[2]).pose.position.x));
+
+	if (fabs(d) < 1e-8)
+	{
+		return radius_inf;
+	}											
+
+  const std::array<double, 3> x2 = { path.points.at(pt_idx[0]).pose.position.x * path.points.at(pt_idx[0]).pose.position.x, 
+																			path.points.at(pt_idx[1]).pose.position.x * path.points.at(pt_idx[1]).pose.position.x, 
+																			path.points.at(pt_idx[2]).pose.position.x * path.points.at(pt_idx[2]).pose.position.x };
+  const std::array<double, 3> y2 = { path.points.at(pt_idx[0]).pose.position.y * path.points.at(pt_idx[0]).pose.position.y, 
+																			path.points.at(pt_idx[1]).pose.position.y * path.points.at(pt_idx[1]).pose.position.y, 
+																			path.points.at(pt_idx[2]).pose.position.y * path.points.at(pt_idx[2]).pose.position.y };
+
+  const double a = y2[0] - y2[1] + x2[0] - x2[1];
+  const double b = y2[0] - y2[2] + x2[0] - x2[2];
+
+  const double cx = ((path.points.at(pt_idx[0]).pose.position.y - path.points.at(pt_idx[2]).pose.position.y) * a - 
+																(path.points.at(pt_idx[0]).pose.position.y - path.points.at(pt_idx[1]).pose.position.y) * b) / d;
+  const double cy = ((path.points.at(pt_idx[0]).pose.position.x - path.points.at(pt_idx[2]).pose.position.x) * a - 
+																(path.points.at(pt_idx[0]).pose.position.x - path.points.at(pt_idx[1]).pose.position.x) * b) / -d;
+
+  double curv = sqrt((cx - path.points.at(pt_idx[0]).pose.position.x) * (cx - path.points.at(pt_idx[0]).pose.position.x) + 
+										 (cy - path.points.at(pt_idx[0]).pose.position.y) * (cy - path.points.at(pt_idx[0]).pose.position.y));
+  return curv;
+}
+
+autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(const mpc::OptSequence& control_seq)
+{
+
+}
+
+size_t MPCPlanner::findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>& points, const geometry_msgs::msg::Point& point)
 {
 
   double min_dist = std::numeric_limits<double>::max();
@@ -196,7 +272,7 @@ size_t findNearestIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& poi
   return min_idx;
 }
 
-double calcSquaredDistance2d(const geometry_msgs::msg::Point& point1, const geometry_msgs::msg::Point& point2)
+double MPCPlanner::calcSquaredDistance2d(const geometry_msgs::msg::Point& point1, const geometry_msgs::msg::Point& point2)
 {
   const auto p1 = point1;
   const auto p2 = point2;
