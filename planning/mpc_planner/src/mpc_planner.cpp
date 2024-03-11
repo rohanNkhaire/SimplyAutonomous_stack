@@ -1,9 +1,12 @@
 #include "mpc_planner/mpc_planner.hpp"
 
+// Declare plugin
+pluginlib::ClassLoader<libmpc::LibMPCBase> nmpc_loader("libmpc_plugin", "libmpc::LibMPCBase");
+std::shared_ptr<libmpc::LibMPCBase> planner = nmpc_loader.createSharedInstance("nmpc_planner::NMPCPlanner");
+
 MPCPlanner::MPCPlanner() : Node("mpc_planner")
 {
-	odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("/localization/kinematic_state", rclcpp::QoS{10},
-																				std::bind(&MPCPlanner::odom_callback, this, std::placeholders::_1));
+	odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("/loca", rclcpp::QoS{1}, std::bind(&MPCPlanner::odom_callback, this, std::placeholders::_1));
 
 	global_path_sub_ = create_subscription<autoware_planning_msgs::msg::Path>("/lanelet_mission_planner/path", rclcpp::QoS{1},
 																									std::bind(&MPCPlanner::global_path_callback, this, std::placeholders::_1));
@@ -17,12 +20,11 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	// Timer
 	auto timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
 
-	// Init NMPC
-	setMPCProblem();
-																																												
+	planner->initialize();
+																																			
 }
 
-void MPCPlanner::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr& msg)
+void MPCPlanner::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
 	odometry_ = *msg;
 
@@ -44,7 +46,7 @@ void MPCPlanner::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr& ms
 	prev_odometry_ = odometry_;								
 }
 
-void MPCPlanner::map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr& msg)
+void MPCPlanner::map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg)
 {
   map_ptr_ = msg;
 
@@ -56,7 +58,7 @@ void MPCPlanner::map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::
   road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
 }
 
-void MPCPlanner::global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr& msg)
+void MPCPlanner::global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr msg)
 {
 	path_msg_ = *msg;
 	path_recieved_ = true;
@@ -84,91 +86,47 @@ void MPCPlanner::timer_callback()
     m.getRPY(goal_roll, goal_pitch, goal_yaw);
 
 		// Set the reference for MPC
+		Eigen::Vector4d yref;
 		yref(0) = std::get<0>(goal_tuple).position.x;
 		yref(1) = std::get<0>(goal_tuple).position.y;
 		yref(3) = goal_yaw;
 		yref(4) = ref_vel;
 
+		// Set reference for controller
+		planner->setReference(yref);
+
 		// Get Vehicle Yaw
     tf2::Quaternion veh_quat_;
-    tf2::Matrix3x3 m;
+    tf2::Matrix3x3 n;
     tf2::fromMsg(odometry_.pose.pose.orientation, veh_quat_);
-    m.setRotation(veh_quat_);
+    n.setRotation(veh_quat_);
     double veh_roll, veh_pitch, veh_yaw;
-    m.getRPY(veh_roll, veh_pitch, veh_yaw);
+    n.getRPY(veh_roll, veh_pitch, veh_yaw);
 
-		// Initialize MPC
-		mpc::cvec<num_states> modelX, modeldX;
+		Eigen::Vector4d modelX;
+		modelX(0) = odometry_.pose.pose.position.x;
+		modelX(1) = odometry_.pose.pose.position.y;
+		modelX(2) = odometry_.twist.twist.linear.x;
+		modelX(3) = veh_yaw;
 
-  	modelX.resize(num_states);
-  	modeldX.resize(num_states);
-  	modelX(0) = odometry_.pose.pose.position.x;
-  	modelX(1) = odometry_.pose.pose.position.y;
-		modelX(2) = veh_yaw;
-		modelX(3) = odometry_.twist.twist.linear.x;
+		// Set the input for controller
+		planner->setStateInput(modelX);
 
-		auto r = controller.getLastResult();
+		// Calc Optimal control
+		planner->stepController();
+		
+		auto opt_states = planner->getOptimalStates();
+		auto opt_inputs = planner->getOptimalInputs();
 
-		r = controller.step(modelX, r.cmd);
-		auto control_seq = controller.getOptimalSequence();
-	
-		std::cout << controller.getExecutionStats();
-
-		autoware_planning_msgs::msg::Trajectory local_path = getLocalPathFromMPC(control_seq);
+		autoware_planning_msgs::msg::Trajectory local_path = getLocalPathFromMPC(opt_states, opt_inputs);
 
 		// Publish the trajectory
-		trajectory_pub_->publish(local_path);
+		//trajectory_pub_->publish(local_path);
 
 		// Publish visualization
-
+	
 
 	}
-}
-
-void MPCPlanner::setMPCProblem()
-{
-
-
-	controller.setLoggerLevel(mpc::Logger::log_level::NORMAL);
-  controller.setContinuosTimeModel(ts);		
-
-	auto stateEq = [&](
-                       mpc::cvec<num_states> &dx,
-                       const mpc::cvec<num_states> &x,
-                       const mpc::cvec<num_inputs> &u)
-    {
-        dx(0) = x(3)*cos(x(2));
-        dx(1) = x(3)*sin(x(2));
-				dx(2) = u(0);
-				dx(3) = u(1);
-    };
-
-		controller.setStateSpaceFunction([&](
-                                        mpc::cvec<num_states> &dx,
-                                        const mpc::cvec<num_states> &x,
-                                        const mpc::cvec<num_inputs> &u,
-                                        const unsigned int &)
-                                    { stateEq(dx, x, u); });
-
-    controller.setObjectiveFunction([&](
-                                       const mpc::mat<pred_hor + 1, num_states> &x,
-                                       const mpc::mat<pred_hor + 1, num_output> &,
-                                       const mpc::mat<pred_hor + 1, num_inputs> &u,
-                                       double)
-                                   { 
-																			double cost = 0;
-        							for (int i = 0; i < (pred_hor + 1); ++i)
-        							{
-        							    cost += (x.row(i).segment(0, 2).transpose() - yref.segment(0, 2)).squaredNorm();
-        							    cost += u.row(i).squaredNorm();
-													cost += std::norm(x(i, 3) - yref(3));
-													cost += std::norm(x(i, 2) - yref(2));
-													cost += i > 0 ? std::norm(u(i) - u(i-1)) : 0.0;
-        							}
-
-        							return cost;
-											 });
-																 
 }
 
 std::tuple<geometry_msgs::msg::Pose, int> MPCPlanner::setGoal(autoware_planning_msgs::msg::Path& path, double& curr_vel, int& curr_idx)
@@ -177,8 +135,13 @@ std::tuple<geometry_msgs::msg::Pose, int> MPCPlanner::setGoal(autoware_planning_
 	// We take goal from the global planner
 	// scale goal with vehicle speed
 	int max_length = path.points.size() - 1;
-	int min_goal_idx = std::min(curr_idx + MIN_GOAL_IDX, max_length);
-	int goal_idx = std::min(curr_idx + int(std::round(curr_vel*LOOK_AHEAD_TIME)), min_goal_idx);
+	int min_goal_idx = curr_idx + MIN_GOAL_IDX;
+	int scaled_vel_idx = curr_idx + int(std::round(curr_vel*LOOK_AHEAD_TIME));
+
+	// Choose proper goal idx
+	int intermediate_goal_idx = std::max(scaled_vel_idx, min_goal_idx); 
+	int goal_idx = std::min(intermediate_goal_idx, max_length);
+
 	geometry_msgs::msg::Pose goal_pose = path.points.at(goal_idx).pose;
 
 	return std::make_tuple(goal_pose, goal_idx);
@@ -193,7 +156,8 @@ int MPCPlanner::getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoi
 double MPCPlanner::setVelocity(const int& goal_idx, const autoware_planning_msgs::msg::Path& path)
 {
 	// If end of path
-	if (goal_idx == (path.points.size() - 1))
+	int end_idx = path.points.size() - 1;
+	if (goal_idx == end_idx)
 	{
 		return 0.0;
 	}
@@ -251,9 +215,34 @@ double MPCPlanner::getCurvature(std::array<int, 3>& pt_idx, const autoware_plann
   return curv;
 }
 
-autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(const mpc::OptSequence& control_seq)
+autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(const Eigen::MatrixXd& states, const Eigen::MatrixXd& inputs)
 {
+	autoware_planning_msgs::msg::Trajectory local_traj;
+	auto opt_states = states;
+	auto opt_input = inputs;
+	for (int i = 0; i < 30; i++)
+	{
+		autoware_planning_msgs::msg::TrajectoryPoint traj_point;
+		geometry_msgs::msg::Pose traj_point_pose;
+		traj_point_pose.position.x = opt_states(i, 0);
+		traj_point_pose.position.y = opt_states(i, 1);
+		traj_point_pose.position.z = 0.0;
+		auto traj_point_quat = createQuaternionFromYaw(opt_states(i, 2));
+		traj_point_pose.orientation.w = traj_point_quat.w;
+		traj_point_pose.orientation.x = traj_point_quat.x;
+		traj_point_pose.orientation.y = traj_point_quat.y;
+		traj_point_pose.orientation.z = traj_point_quat.z;
+		
+		traj_point.pose = traj_point_pose;
+		traj_point.longitudinal_velocity_mps = opt_states(i, 3);
+		traj_point.acceleration_mps2 = opt_input(i, 0);
+		traj_point.heading_rate_rps = opt_input(i, 1);
+		
+		
+		local_traj.points.push_back(traj_point);
+	}
 
+	return local_traj;
 }
 
 size_t MPCPlanner::findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>& points, const geometry_msgs::msg::Point& point)
@@ -279,4 +268,11 @@ double MPCPlanner::calcSquaredDistance2d(const geometry_msgs::msg::Point& point1
   const auto dx = p1.x - p2.x;
   const auto dy = p1.y - p2.y;
   return dx * dx + dy * dy;
+}
+
+geometry_msgs::msg::Quaternion MPCPlanner::createQuaternionFromYaw(const double& yaw)
+{
+  tf2::Quaternion q;
+  q.setRPY(0, 0, yaw);
+  return tf2::toMsg(q);
 }

@@ -1,15 +1,18 @@
 #ifndef MPC_PLANNER__MPC_PLANNER_HPP_
 #define MPC_PLANNER__MPC_PLANNER_HPP_
 
-#include <mpc/LMPC.hpp>
-#include <mpc/NLMPC.hpp> 
-#include <rclcpp/rclcpp.hpp>
+#include "libmpc_plugin/libmpc_base.hpp"
 
+#include <rclcpp/rclcpp.hpp>
+#include <Eigen/Core>
 #include <nav_msgs/msg/odometry.hpp>
 #include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
 #include <autoware_planning_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
+
+// Plugin lib
+#include <pluginlib/class_loader.hpp>
 
 // TF2
 #include <tf2/LinearMath/Quaternion.h>
@@ -30,23 +33,6 @@
 #include <cmath>
 #include <array>
 
-// MPC
-	constexpr int num_states = 4;
-  constexpr int num_output = 2;
-  constexpr int num_inputs = 2;
-  constexpr int pred_hor = 30;
-  constexpr int ctrl_hor = 30;
-  constexpr int ineq_c = 0;
-  constexpr int eq_c = 0;
-  double ts = 0.1;
-
-	static constexpr double radius_inf = 5.0e2;
-
-	mpc::NLMPC<
-      num_states, num_inputs, num_output,
-      pred_hor, ctrl_hor,
-      ineq_c, eq_c> controller;
-
 class MPCPlanner : public rclcpp::Node
 {
 public:	
@@ -63,9 +49,9 @@ private:
 	
 
 	// callbacks
-	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr&);
-	void map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr&);
-	void global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr&);
+	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr);
+	void map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr);
+	void global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr);
 
 	//timer
 	void timer_callback();
@@ -83,7 +69,7 @@ private:
 	double curr_velocity_;
 	double LOOK_AHEAD_TIME = 4.0;
 	int MIN_GOAL_IDX = 10;
-	mpc::cvec<4> yref;
+	int radius_inf = 500;
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -99,7 +85,9 @@ private:
   void setMPCProblem();
 	size_t findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>&, const geometry_msgs::msg::Point&);
 	double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
-	
+	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(const Eigen::MatrixXd&, const Eigen::MatrixXd&);
+	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
+
 };
 
 #endif //MPC_PLANNER__MPC_PLANNER_HPP_
