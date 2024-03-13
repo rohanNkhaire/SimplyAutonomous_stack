@@ -11,6 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(lanelet2_extension REQUIRED)
+# Find the mpc++ package
+find_package(mpc++ CONFIG REQUIRED)
 
 include_directories(include)
 add_executable(lanelet2_mission_planner src/lanelet2_mission_planner.cpp

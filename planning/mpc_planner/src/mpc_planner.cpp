@@ -1,9 +1,5 @@
 #include "mpc_planner/mpc_planner.hpp"
 
-// Declare plugin
-pluginlib::ClassLoader<libmpc::LibMPCBase> nmpc_loader("libmpc_plugin", "libmpc::LibMPCBase");
-std::shared_ptr<libmpc::LibMPCBase> planner = nmpc_loader.createSharedInstance("nmpc_planner::NMPCPlanner");
-
 MPCPlanner::MPCPlanner() : Node("mpc_planner")
 {
 	odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("/loca", rclcpp::QoS{1}, std::bind(&MPCPlanner::odom_callback, this, std::placeholders::_1));
@@ -20,7 +16,10 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	// Timer
 	auto timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
 
-	planner->initialize();
+	// Declare plugin
+	//pluginlib::ClassLoader<libmpc::LibMPCBase> nmpc_loader("mpc_base", "libmpc::LibMPCBase");
+	//std::shared_ptr<libmpc::LibMPCBase> planner = nmpc_loader.createSharedInstance("nmpc_planner::NMPCPlanner");
+	//planner->initialize();
 																																			
 }
 
@@ -93,7 +92,7 @@ void MPCPlanner::timer_callback()
 		yref(4) = ref_vel;
 
 		// Set reference for controller
-		planner->setReference(yref);
+		//planner->setReference(yref);
 
 		// Get Vehicle Yaw
     tf2::Quaternion veh_quat_;
@@ -110,15 +109,15 @@ void MPCPlanner::timer_callback()
 		modelX(3) = veh_yaw;
 
 		// Set the input for controller
-		planner->setStateInput(modelX);
+		//planner->setStateInput(modelX);
 
 		// Calc Optimal control
-		planner->stepController();
+		//planner->stepController();
 		
-		auto opt_states = planner->getOptimalStates();
-		auto opt_inputs = planner->getOptimalInputs();
+		//auto opt_states = planner->getOptimalStates();
+		//auto opt_inputs = planner->getOptimalInputs();
 
-		autoware_planning_msgs::msg::Trajectory local_path = getLocalPathFromMPC(opt_states, opt_inputs);
+		//autoware_planning_msgs::msg::Trajectory local_path = getLocalPathFromMPC(opt_states, opt_inputs);
 
 		// Publish the trajectory
 		//trajectory_pub_->publish(local_path);
@@ -220,7 +219,8 @@ autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(const Ei
 	autoware_planning_msgs::msg::Trajectory local_traj;
 	auto opt_states = states;
 	auto opt_input = inputs;
-	for (int i = 0; i < 30; i++)
+	int horizon_length = states.cols();
+	for (int i = 0; i < horizon_length; ++i)
 	{
 		autoware_planning_msgs::msg::TrajectoryPoint traj_point;
 		geometry_msgs::msg::Pose traj_point_pose;
