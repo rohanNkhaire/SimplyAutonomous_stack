@@ -1,10 +1,12 @@
 #ifndef MPC_PLANNER__MPC_PLANNER_HPP_
 #define MPC_PLANNER__MPC_PLANNER_HPP_
 
-//#include "mpc_plugin/mpc_base.hpp"
+#include "mpc_plugin/mpc_base.hpp"
 
 #include <rclcpp/rclcpp.hpp>
 #include <Eigen/Core>
+
+// Msgs
 #include <nav_msgs/msg/odometry.hpp>
 #include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
@@ -16,7 +18,7 @@
 
 // TF2
 #include <tf2/LinearMath/Quaternion.h>
-#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 // Importing lanelet2 headers
 #include <lanelet2_extension/utility/message_conversion.hpp>
@@ -46,7 +48,7 @@ private:
 
 	//Publishers
 	rclcpp::Publisher<autoware_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
-	
+	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_local_path_pub_;
 
 	// callbacks
 	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr);
@@ -54,6 +56,7 @@ private:
 	void global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr);
 
 	//timer
+	rclcpp::TimerBase::SharedPtr timer_;
 	void timer_callback();
 
 	//variables
@@ -65,11 +68,13 @@ private:
 	double prev_twist_ = 0.0;
 	bool initialized = false;
 	bool path_recieved_ = false;
+	bool odometry_recieved_ = false;
 	double init_timer_;
 	double curr_velocity_;
 	double LOOK_AHEAD_TIME = 4.0;
 	int MIN_GOAL_IDX = 10;
 	int radius_inf = 500;
+	//Eigen::MatrixXd *opt_states(12,4), *opt_inputs(12,2);
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -87,6 +92,8 @@ private:
 	double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
 	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(const Eigen::MatrixXd&, const Eigen::MatrixXd&);
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
+	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
+																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
 
 };
 

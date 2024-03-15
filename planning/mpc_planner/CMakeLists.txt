@@ -14,10 +14,10 @@ find_package(lanelet2_extension REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(mpc_plugin REQUIRED)
 find_package(pluginlib REQUIRED)
-#find_package(mpc++ CONFIG REQUIRED)
+find_package(mpc++ CONFIG REQUIRED)
 
 include_directories(include)
-#include_directories(${mpc++_INCLUDE_DIRS})
+include_directories(${mpc++_INCLUDE_DIRS})
 
 add_executable(mpc_planner src/mpc_planner.cpp
                             src/mpc_planner_node.cpp)
@@ -33,7 +33,7 @@ install(
   DESTINATION include
 )
 
-target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
+target_link_libraries(${PROJECT_NAME} Eigen3::Eigen mpc++)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
