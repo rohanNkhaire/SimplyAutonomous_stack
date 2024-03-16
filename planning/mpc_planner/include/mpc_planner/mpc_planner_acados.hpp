@@ -1,10 +1,11 @@
 #ifndef MPC_PLANNER__MPC_PLANNER_HPP_
 #define MPC_PLANNER__MPC_PLANNER_HPP_
 
-#include "mpc_plugin/mpc_base.hpp"
+#define NX     NMPC_PLANNER_NX
+#define NU     NMPC_PLANNER_NU
+#define NBX0   NMPC_PLANNER_NBX0
 
 #include <rclcpp/rclcpp.hpp>
-#include <Eigen/Core>
 
 // Msgs
 #include <nav_msgs/msg/odometry.hpp>
@@ -13,8 +14,15 @@
 #include <autoware_planning_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
-// Plugin lib
-#include <pluginlib/class_loader.hpp>
+// acados
+#include "acados/utils/print.h"
+#include "acados/utils/math.h"
+#include "acados_c/ocp_nlp_interface.h"
+#include "acados_c/external_function_interface.h"
+#include "acados_solver_nmpc_planner.h"
+
+// blasfeo
+#include "blasfeo/include/blasfeo_d_aux_ext_dep.h"
 
 // TF2
 #include <tf2/LinearMath/Quaternion.h>
@@ -39,6 +47,7 @@ class MPCPlanner : public rclcpp::Node
 {
 public:	
 	explicit MPCPlanner();
+	~MPCPlanner();
 
 private:
 	//Subscribers
@@ -59,6 +68,19 @@ private:
 	rclcpp::TimerBase::SharedPtr timer_;
 	void timer_callback();
 
+	//Acados variables
+	nmpc_planner_solver_capsule *acados_ocp_capsule;
+	double* new_time_steps = nullptr;
+	int status, N;
+	ocp_nlp_config *nlp_config;
+	ocp_nlp_dims *nlp_dims;
+	ocp_nlp_in *nlp_in;
+	ocp_nlp_out *nlp_out;
+	ocp_nlp_solver *nlp_solver;
+	void *nlp_opts;
+	double lbx0[NBX0];
+  double ubx0[NBX0];
+
 	//variables
 	nav_msgs::msg::Odometry odometry_;
 	nav_msgs::msg::Odometry prev_odometry_;
@@ -72,9 +94,8 @@ private:
 	double init_timer_;
 	double curr_velocity_;
 	double LOOK_AHEAD_TIME = 4.0;
-	int MIN_GOAL_IDX = 10;
+	int MIN_GOAL_IDX = 6;
 	int radius_inf = 500;
-	//Eigen::MatrixXd *opt_states(12,4), *opt_inputs(12,2);
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -83,13 +104,14 @@ private:
   lanelet::ConstLanelets road_lanelets_;
 
   // Functions
+  void setMPCProblem();
 	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
 	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
 	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);
 	double getCurvature(std::array<int, 3>&, const autoware_planning_msgs::msg::Path&);
 	size_t findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>&, const geometry_msgs::msg::Point&);
 	double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
-	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(const Eigen::MatrixXd&, const Eigen::MatrixXd&);
+	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(double[], double[]);
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
 																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
