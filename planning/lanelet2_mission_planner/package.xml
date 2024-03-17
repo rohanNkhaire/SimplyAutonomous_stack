@@ -4,7 +4,7 @@
   <name>lanelet2_mission_planner</name>
   <version>0.0.0</version>
   <description>TODO: Package description</description>
-  <maintainer email="121974220+hgangwar@users.noreply.github.com">beliv</maintainer>
+  <maintainer email="rohannkhaire@gmail.com"></maintainer>
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake_auto</buildtool_depend>
@@ -14,6 +14,7 @@
 
   <depend>lanelet2_extension</depend>
   <depend>rclcpp</depend>
+  <depend>lanelet2</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
