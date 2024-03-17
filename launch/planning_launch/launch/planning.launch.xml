@@ -1,0 +1,11 @@
+<launch>
+  <!-- Parameter files -->
+
+  <group>
+    <push-ros-namespace namespace="planning"/>
+    
+   <node pkg="lanelet2_mission_planner" name="lanelet2_mission_planner" exec="lanelet2_mission_planner">
+   </node>
+
+  </group>
+</launch>
