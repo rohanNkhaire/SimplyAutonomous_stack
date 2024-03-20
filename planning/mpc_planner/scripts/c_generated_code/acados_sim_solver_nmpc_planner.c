@@ -74,7 +74,7 @@ int nmpc_planner_acados_sim_create(nmpc_planner_sim_solver_capsule * capsule)
     bool tmp_bool;
 
     
-    double Tsim = 0.08;
+    double Tsim = 0.1;
 
     
     // explicit ode

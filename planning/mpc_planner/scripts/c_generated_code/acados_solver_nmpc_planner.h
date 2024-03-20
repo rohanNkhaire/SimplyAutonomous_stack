@@ -63,7 +63,7 @@
 #define NMPC_PLANNER_NY0    6
 #define NMPC_PLANNER_NY     6
 #define NMPC_PLANNER_NYN    4
-#define NMPC_PLANNER_N      50
+#define NMPC_PLANNER_N      40
 #define NMPC_PLANNER_NH     0
 #define NMPC_PLANNER_NHN    0
 #define NMPC_PLANNER_NH0    0

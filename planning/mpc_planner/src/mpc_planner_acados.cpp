@@ -18,6 +18,7 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	// Timer
 	timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
 
+  setTF();
 	setMPCProblem();
 																																			
 }
@@ -71,6 +72,10 @@ void MPCPlanner::timer_callback()
 		// Set the goal point and goal index in the global path
 		std::tuple<geometry_msgs::msg::Pose, int> goal_tuple = setGoal(path_msg_, odometry_.twist.twist.linear.x, curr_index);
 
+    if (std::get<1>(goal_tuple) == -1)
+    {
+      return;
+    }
 		// Set desired velocity
 		double ref_vel = setVelocity(std::get<1>(goal_tuple), path_msg_);
 
@@ -89,7 +94,7 @@ void MPCPlanner::timer_callback()
     n.setRotation(veh_quat_);
     double veh_roll, veh_pitch, veh_yaw;
     n.getRPY(veh_roll, veh_pitch, veh_yaw);
-
+  
 		// Set the reference for MPC
 		double yref[4];
 		yref[0] = std::get<0>(goal_tuple).position.x;
@@ -99,10 +104,11 @@ void MPCPlanner::timer_callback()
 
 		// initialization for state values
     double x_init[4];
-    x_init[0] = odometry_.pose.pose.position.x;
-    x_init[1] = odometry_.pose.pose.position.y;
+    x_init[0] = 0.0;
+    x_init[1] = 0.0;
     x_init[2] = odometry_.twist.twist.linear.x;
-    x_init[3] = veh_yaw;
+    x_init[3] = 0.0;
+    
 
     // initial value for control input
     double u0[2];
@@ -113,8 +119,8 @@ void MPCPlanner::timer_callback()
     double min_time = 1e12;
     double elapsed_time;
 
-    double xtraj[204];
-    double utraj[100];
+    double xtraj[164];
+    double utraj[80];
 
     // solve ocp in loop
     int rti_phase = 0;
@@ -125,9 +131,10 @@ void MPCPlanner::timer_callback()
 		ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "lbx", x_init);
   	ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "ubx", x_init);
 
-		for(int i = 0; i <= N; ++i)
+		for(int i = 0; i < N; ++i)
 		{
-			ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
+			//ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
+      ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "p", yref)
 		}
 
 		for (int i = 0; i < N; i++)
@@ -136,7 +143,7 @@ void MPCPlanner::timer_callback()
         ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "u", u0);
     }
     ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, N, "x", x_init);
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_phase", &rti_phase);
+    //ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_phase", &rti_phase);
     status = nmpc_planner_acados_solve(acados_ocp_capsule);
     ocp_nlp_get(nlp_config, nlp_solver, "time_tot", &elapsed_time);
     min_time = MIN(elapsed_time, min_time);
@@ -170,6 +177,12 @@ void MPCPlanner::timer_callback()
 		viz_local_path_pub_->publish(visual_local_path);
 
 	}
+}
+
+void MPCPlanner::setTF()
+{
+  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 void MPCPlanner::setMPCProblem()
@@ -208,7 +221,28 @@ std::tuple<geometry_msgs::msg::Pose, int> MPCPlanner::setGoal(autoware_planning_
 
 	geometry_msgs::msg::Pose goal_pose = path.points.at(goal_idx).pose;
 
-	return std::make_tuple(goal_pose, goal_idx);
+  // transform pose to base_link
+  // TF from map to base
+
+  geometry_msgs::msg::PoseStamped pose_in_;
+  geometry_msgs::msg::PoseStamped transformed_goal;
+
+  pose_in_.header = odometry_.header;
+  pose_in_.pose = goal_pose;
+  
+  // Transforms the pose between the source frame and target frame
+  if(tf_buffer_->canTransform("base_link", "map", rclcpp::Time(), tf2::Duration(std::chrono::milliseconds(10))))
+  {
+    tf_buffer_->transform<geometry_msgs::msg::PoseStamped>(pose_in_, transformed_goal, "base_link",
+        tf2::Duration(std::chrono::milliseconds(10)));
+  }
+  else
+  {
+    goal_idx = -1;
+  }
+  
+
+	return std::make_tuple(transformed_goal.pose, goal_idx);
 }
 
 int MPCPlanner::getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& path_point, nav_msgs::msg::Odometry& veh_odom)
@@ -283,7 +317,7 @@ autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(double s
 {
 	autoware_planning_msgs::msg::Trajectory local_traj;
 	int horizon_length = N;
-	for (int i = 0; i < horizon_length; ++i)
+	for (int i = 0; i < horizon_length + 1; ++i)
 	{
 		autoware_planning_msgs::msg::TrajectoryPoint traj_point;
 		geometry_msgs::msg::Pose traj_point_pose;
@@ -298,11 +332,16 @@ autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(double s
 		
 		traj_point.pose = traj_point_pose;
 		traj_point.longitudinal_velocity_mps = states[(i*NX)+2];
-		traj_point.acceleration_mps2 = inputs[(i*NX)];
-		traj_point.heading_rate_rps = inputs[(i*NX)+1];
+    if(i < horizon_length)
+    {
+	  	traj_point.acceleration_mps2 = inputs[(i*NX)];
+		  traj_point.heading_rate_rps = inputs[(i*NX)+1];
+      RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: u0:%f, u1:%f", inputs[(i*NX)], inputs[(i*NX)+1]);
+    }
 
-		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
+		//RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
 		
+
 		local_traj.points.push_back(traj_point);
 	}
 
@@ -351,7 +390,7 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
   total_color.a = 1.0;
    
   visualization_msgs::msg::Marker lane_waypoint_marker;
-  lane_waypoint_marker.header.frame_id = "map";
+  lane_waypoint_marker.header.frame_id = "base_link";
   lane_waypoint_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
   lane_waypoint_marker.ns = "local_trajectory_marker";
   lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
@@ -375,7 +414,7 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
 
 	// Goal Point
 	visualization_msgs::msg::Marker goal_marker;
-  goal_marker.header.frame_id = "map";
+  goal_marker.header.frame_id = "base_link";
   goal_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
   goal_marker.ns = "goal_marker";
   goal_marker.type = visualization_msgs::msg::Marker::SPHERE;

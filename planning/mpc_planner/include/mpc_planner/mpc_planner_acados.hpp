@@ -27,6 +27,8 @@
 // TF2
 #include <tf2/LinearMath/Quaternion.h>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
 
 // Importing lanelet2 headers
 #include <lanelet2_extension/utility/message_conversion.hpp>
@@ -97,6 +99,9 @@ private:
 	int MIN_GOAL_IDX = 6;
 	int radius_inf = 500;
 
+	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
   lanelet::routing::RoutingGraphPtr routing_graph_ptr_;
@@ -105,6 +110,7 @@ private:
 
   // Functions
   void setMPCProblem();
+	void setTF();
 	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
 	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
 	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);

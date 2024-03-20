@@ -28,7 +28,13 @@ def export_ode_model() -> AcadosModel:
     # z = None
 
     # parameters
-    p = []
+    p_x = SX.sym("p_x")
+    p_y = SX.sym("p_y")
+    p_v = SX.sym("p_v")
+    p_th = SX.sym("p_th")
+    p_ex = SX.sym("p_ex")
+    p_ey = SX.sym("p_ey")
+    p = vertcat(p_x, p_y, p_v, p_th, p_ex, p_ey)
 
     # dynamics
     f_expl = vertcat(v * cos(theta), v * sin(theta), A, YR)

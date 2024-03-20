@@ -145,7 +145,7 @@ void nmpc_planner_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan, cons
     *  plan
     ************************************************/
 
-    nlp_solver_plan->nlp_solver = SQP_RTI;
+    nlp_solver_plan->nlp_solver = SQP;
 
     nlp_solver_plan->ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_HPIPM;
 
@@ -374,7 +374,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
         nmpc_planner_acados_update_time_steps(capsule, N, new_time_steps);
     }
     else
-    {double time_step = 0.08;
+    {double time_step = 0.1;
         for (int i = 0; i < N; i++)
         {
             ocp_nlp_in_set(nlp_config, nlp_dims, nlp_in, i, "Ts", &time_step);
@@ -397,12 +397,10 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
 
    double* W_0 = calloc(NY0*NY0, sizeof(double));
     // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 1000;
-    W_0[1+(NY0) * 1] = 1000;
-    W_0[2+(NY0) * 2] = 100;
-    W_0[3+(NY0) * 3] = 100;
-    W_0[4+(NY0) * 4] = 0.1;
-    W_0[5+(NY0) * 5] = 0.1;
+    W_0[0+(NY0) * 0] = 120;
+    W_0[1+(NY0) * 1] = 100;
+    W_0[4+(NY0) * 4] = 30;
+    W_0[5+(NY0) * 5] = 800;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
     free(W_0);
     double* Vx_0 = calloc(NY0*NX, sizeof(double));
@@ -429,12 +427,10 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     free(yref);
     double* W = calloc(NY*NY, sizeof(double));
     // change only the non-zero elements:
-    W[0+(NY) * 0] = 1000;
-    W[1+(NY) * 1] = 1000;
-    W[2+(NY) * 2] = 100;
-    W[3+(NY) * 3] = 100;
-    W[4+(NY) * 4] = 0.1;
-    W[5+(NY) * 5] = 0.1;
+    W[0+(NY) * 0] = 120;
+    W[1+(NY) * 1] = 100;
+    W[4+(NY) * 4] = 30;
+    W[5+(NY) * 5] = 800;
 
     for (int i = 1; i < N; i++)
     {
@@ -472,10 +468,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
 
     double* W_e = calloc(NYN*NYN, sizeof(double));
     // change only the non-zero elements:
-    W_e[0+(NYN) * 0] = 1000;
-    W_e[1+(NYN) * 1] = 1000;
-    W_e[2+(NYN) * 2] = 100;
-    W_e[3+(NYN) * 3] = 100;
+    W_e[3+(NYN) * 3] = 200;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "W", W_e);
     free(W_e);
     double* Vx_e = calloc(NYN*NX, sizeof(double));
@@ -535,15 +528,15 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     int* idxbu = malloc(NBU * sizeof(int));
     
     idxbu[0] = 0;
-    idxbu[1] = 0;
+    idxbu[1] = 1;
     double* lubu = calloc(2*NBU, sizeof(double));
     double* lbu = lubu;
     double* ubu = lubu + NBU;
     
     lbu[0] = -3;
-    ubu[0] = 1;
-    lbu[1] = -0.2;
-    ubu[1] = 0.2;
+    ubu[0] = 0.75;
+    lbu[1] = -0.5;
+    ubu[1] = 0.5;
 
     for (int i = 0; i < N; i++)
     {
@@ -647,14 +640,24 @@ int fixed_hess = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_hpipm_mode", "BALANCE");
 
 
-    int as_rti_iter = 1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_iter", &as_rti_iter);
+    // set SQP specific options
+    double nlp_solver_tol_stat = 0.000001;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_stat", &nlp_solver_tol_stat);
 
-    int as_rti_level = 4;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "as_rti_level", &as_rti_level);
+    double nlp_solver_tol_eq = 0.000001;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_eq", &nlp_solver_tol_eq);
 
-    int rti_log_residuals = 0;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_log_residuals", &rti_log_residuals);
+    double nlp_solver_tol_ineq = 0.000001;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_ineq", &nlp_solver_tol_ineq);
+
+    double nlp_solver_tol_comp = 0.000001;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "tol_comp", &nlp_solver_tol_comp);
+
+    int nlp_solver_max_iter = 100;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "max_iter", &nlp_solver_max_iter);
+
+    int initialize_t_slacks = 0;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "initialize_t_slacks", &initialize_t_slacks);
 
     int qp_solver_iter_max = 50;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_iter_max", &qp_solver_iter_max);
@@ -965,7 +968,7 @@ void nmpc_planner_acados_print_stats(nmpc_planner_solver_capsule* capsule)
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "stat_m", &stat_m);
 
     
-    double stat[4800];
+    double stat[1200];
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "statistics", stat);
 
     int nrow = sqp_iter+1 < stat_m ? sqp_iter+1 : stat_m;
@@ -974,16 +977,24 @@ void nmpc_planner_acados_print_stats(nmpc_planner_solver_capsule* capsule)
     if (stat_n > 8)
         printf("\t\tqp_res_stat\tqp_res_eq\tqp_res_ineq\tqp_res_comp");
     printf("\n");
-    printf("iter\tqp_stat\tqp_iter\n");
+
     for (int i = 0; i < nrow; i++)
     {
         for (int j = 0; j < stat_n + 1; j++)
         {
-            tmp_int = (int) stat[i + j * nrow];
-            printf("%d\t", tmp_int);
+            if (j == 0 || j == 5 || j == 6)
+            {
+                tmp_int = (int) stat[i + j * nrow];
+                printf("%d\t", tmp_int);
+            }
+            else
+            {
+                printf("%e\t", stat[i + j * nrow]);
+            }
         }
         printf("\n");
     }
+
 }
 
 int nmpc_planner_acados_custom_update(nmpc_planner_solver_capsule* capsule, double* data, int data_len)
