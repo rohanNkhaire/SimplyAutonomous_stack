@@ -9,35 +9,31 @@ def export_ode_model() -> AcadosModel:
     y = SX.sym("y")
     v = SX.sym("x_d")
     theta = SX.sym("theta")
+    theta_d = SX.sym("theta_d")
 
-    x = vertcat(x, y, v, theta)
+    x = vertcat(x, y, v, theta, theta_d)
 
     A = SX.sym("A")
-    YR = SX.sym("YR")
-    u = vertcat(A, YR)
+    T = SX.sym("YR")
+    u = vertcat(A, T)
 
     # xdot
     x_dot = SX.sym("x_dot")
     y_dot = SX.sym("y_dot")
     v_dot = SX.sym("v_dot")
     theta_dot = SX.sym("theta_dot")
+    theta_ddot = SX.sym("theta_ddot")
 
-    xdot = vertcat(x_dot, y_dot, v_dot, theta_dot)
+    xdot = vertcat(x_dot, y_dot, v_dot, theta_dot, theta_ddot)
 
     # algebraic variables
     # z = None
 
     # parameters
-    p_x = SX.sym("p_x")
-    p_y = SX.sym("p_y")
-    p_v = SX.sym("p_v")
-    p_th = SX.sym("p_th")
-    p_ex = SX.sym("p_ex")
-    p_ey = SX.sym("p_ey")
-    p = vertcat(p_x, p_y, p_v, p_th, p_ex, p_ey)
+    p = []
 
     # dynamics
-    f_expl = vertcat(v * cos(theta), v * sin(theta), A, YR)
+    f_expl = vertcat(v * cos(theta), v * sin(theta), A, theta_d, T)
 
     f_impl = xdot - f_expl
 

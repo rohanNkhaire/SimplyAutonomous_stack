@@ -18,7 +18,7 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	// Timer
 	timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
 
-  setTF();
+  setupTF();
 	setMPCProblem();
 																																			
 }
@@ -72,44 +72,28 @@ void MPCPlanner::timer_callback()
 		// Set the goal point and goal index in the global path
 		std::tuple<geometry_msgs::msg::Pose, int> goal_tuple = setGoal(path_msg_, odometry_.twist.twist.linear.x, curr_index);
 
-    if (std::get<1>(goal_tuple) == -1)
-    {
-      return;
-    }
 		// Set desired velocity
 		double ref_vel = setVelocity(std::get<1>(goal_tuple), path_msg_);
 
-		// Get Goal Yaw
-    tf2::Quaternion goal_quat_;
-    tf2::Matrix3x3 m;
-    tf2::fromMsg(std::get<0>(goal_tuple).orientation, goal_quat_);
-    m.setRotation(goal_quat_);
-    double goal_roll, goal_pitch, goal_yaw;
-    m.getRPY(goal_roll, goal_pitch, goal_yaw);
-
-		// Get Vehicle Yaw
-    tf2::Quaternion veh_quat_;
-    tf2::Matrix3x3 n;
-    tf2::fromMsg(odometry_.pose.pose.orientation, veh_quat_);
-    n.setRotation(veh_quat_);
-    double veh_roll, veh_pitch, veh_yaw;
-    n.getRPY(veh_roll, veh_pitch, veh_yaw);
+    // Tranform goal pose w.r.t base_link
+    refPose goal_st = transformGoalToBase(odometry_, std::get<0>(goal_tuple));
   
 		// Set the reference for MPC
-		double yref[4];
-		yref[0] = std::get<0>(goal_tuple).position.x;
-		yref[1] = std::get<0>(goal_tuple).position.y;
+		double yref[5];
+		yref[0] = goal_st.x;
+		yref[1] = goal_st.y;
 		yref[2] = ref_vel;
-		yref[3] = goal_yaw;
+		yref[3] = goal_st.yaw;
+    yref[4] = 0.0;
 
 		// initialization for state values
-    double x_init[4];
+    double x_init[5];
     x_init[0] = 0.0;
     x_init[1] = 0.0;
     x_init[2] = odometry_.twist.twist.linear.x;
     x_init[3] = 0.0;
+    x_init[4] = 0.0;
     
-
     // initial value for control input
     double u0[2];
     u0[0] = 0.0;
@@ -119,11 +103,10 @@ void MPCPlanner::timer_callback()
     double min_time = 1e12;
     double elapsed_time;
 
-    double xtraj[164];
+    double xtraj[205];
     double utraj[80];
 
     // solve ocp in loop
-    int rti_phase = 0;
 
 		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "START POINT: x:%f, y:%f, v:%f, th:%f", x_init[0], x_init[1], x_init[2], x_init[3]);
 		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "GOAL POINT: x:%f, y:%f, v:%f, th:%f", yref[0], yref[1], yref[2], yref[3]);
@@ -133,17 +116,32 @@ void MPCPlanner::timer_callback()
 
 		for(int i = 0; i < N; ++i)
 		{
-			//ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
-      ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "p", yref)
+      ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
 		}
+    
+    for(int i = 0; i < (std::get<1>(goal_tuple) - curr_index); ++i)
+		{
+      double y_intermediate[5];
+      int start_idx = curr_index + i;
+      refPose inter_goal_st = transformGoalToBase(odometry_, path_msg_.points.at(start_idx).pose);
 
+      // setting intermediate traj
+      y_intermediate[0] = inter_goal_st.x;
+      y_intermediate[1] = inter_goal_st.y;
+      y_intermediate[2] = ref_vel;
+      y_intermediate[3] = inter_goal_st.yaw;
+      y_intermediate[4] = 0.0;
+
+      ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", y_intermediate);
+		}
+  
 		for (int i = 0; i < N; i++)
     {
-        ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "x", x_init);
-        ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "u", u0);
+      ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "x", x_init);
+      ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "u", u0);
     }
+
     ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, N, "x", x_init);
-    //ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "rti_phase", &rti_phase);
     status = nmpc_planner_acados_solve(acados_ocp_capsule);
     ocp_nlp_get(nlp_config, nlp_solver, "time_tot", &elapsed_time);
     min_time = MIN(elapsed_time, min_time);
@@ -177,12 +175,6 @@ void MPCPlanner::timer_callback()
 		viz_local_path_pub_->publish(visual_local_path);
 
 	}
-}
-
-void MPCPlanner::setTF()
-{
-  tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
-  tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }
 
 void MPCPlanner::setMPCProblem()
@@ -220,29 +212,8 @@ std::tuple<geometry_msgs::msg::Pose, int> MPCPlanner::setGoal(autoware_planning_
 	int goal_idx = std::min(intermediate_goal_idx, max_length);
 
 	geometry_msgs::msg::Pose goal_pose = path.points.at(goal_idx).pose;
-
-  // transform pose to base_link
-  // TF from map to base
-
-  geometry_msgs::msg::PoseStamped pose_in_;
-  geometry_msgs::msg::PoseStamped transformed_goal;
-
-  pose_in_.header = odometry_.header;
-  pose_in_.pose = goal_pose;
   
-  // Transforms the pose between the source frame and target frame
-  if(tf_buffer_->canTransform("base_link", "map", rclcpp::Time(), tf2::Duration(std::chrono::milliseconds(10))))
-  {
-    tf_buffer_->transform<geometry_msgs::msg::PoseStamped>(pose_in_, transformed_goal, "base_link",
-        tf2::Duration(std::chrono::milliseconds(10)));
-  }
-  else
-  {
-    goal_idx = -1;
-  }
-  
-
-	return std::make_tuple(transformed_goal.pose, goal_idx);
+	return std::make_tuple(goal_pose, goal_idx);
 }
 
 int MPCPlanner::getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>& path_point, nav_msgs::msg::Odometry& veh_odom)
@@ -395,14 +366,15 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
   lane_waypoint_marker.ns = "local_trajectory_marker";
   lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
   lane_waypoint_marker.action = visualization_msgs::msg::Marker::ADD;
-  lane_waypoint_marker.scale.x = 2.0;
-  lane_waypoint_marker.scale.y = 2.0;
+  lane_waypoint_marker.scale.x = 1.0;
+  lane_waypoint_marker.scale.y = 1.0;
   lane_waypoint_marker.color = total_color;
   lane_waypoint_marker.frame_locked = true;
 
   int count = 0;
   for (unsigned int i=0; i<lane_waypoints_array.points.size(); i++)
   {
+
     geometry_msgs::msg::Point point;
     point = lane_waypoints_array.points.at(i).pose.position;
     lane_waypoint_marker.points.push_back(point);
@@ -414,14 +386,14 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
 
 	// Goal Point
 	visualization_msgs::msg::Marker goal_marker;
-  goal_marker.header.frame_id = "base_link";
+  goal_marker.header.frame_id = "map";
   goal_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
   goal_marker.ns = "goal_marker";
   goal_marker.type = visualization_msgs::msg::Marker::SPHERE;
   goal_marker.action = visualization_msgs::msg::Marker::ADD;
-  goal_marker.scale.x = 2.0;
-  goal_marker.scale.y = 2.0;
-	goal_marker.scale.z = 2.0;
+  goal_marker.scale.x = 1.0;
+  goal_marker.scale.y = 1.0;
+	goal_marker.scale.z = 1.0;
   goal_marker.color = total_color;
   goal_marker.frame_locked = true;
 	goal_marker.pose = goal_pose;
@@ -429,3 +401,38 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
 	markerArray.markers.push_back(goal_marker);
 
 }
+
+MPCPlanner::refPose MPCPlanner::transformGoalToBase(const nav_msgs::msg::Odometry& veh_odom, const geometry_msgs::msg::Pose& goal_pose)
+{
+  refPose goal_struct;
+  geometry_msgs::msg::PoseStamped pose_in, pose_out;
+  pose_in.header = veh_odom.header;
+  pose_in.pose = goal_pose;
+
+  
+  tf_buffer_->transform<geometry_msgs::msg::PoseStamped>(pose_in, pose_out, "base_link",
+        tf2::Duration(std::chrono::milliseconds(10)));
+
+  goal_struct.x = pose_out.pose.position.x;
+  goal_struct.y = pose_out.pose.position.y;
+  goal_struct.yaw = tf2::getYaw(pose_out.pose.orientation); 
+
+  return goal_struct; 
+}
+
+void MPCPlanner::setupTF()
+{
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+}
+
+/*
+geometry_msgs::msg::Point MPCPlanner::transformBaseToGoal(const geometry_msgs::msg::Pose& veh_pose, const autoware_planning_msgs::msg::Trajectory& local_traj)
+{
+  geometry_msgs::msg::Point traj_point;
+
+  traj_point.x = veh_pose.position.x + 
+
+  return goal_struct; 
+}
+*/

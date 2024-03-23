@@ -22,7 +22,7 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	// Timer
 	timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
 
-
+	setupTF();
 	planner->initialize();
 																																			
 }
@@ -30,26 +30,7 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 void MPCPlanner::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
 {
 	odometry_ = *msg;
-	odometry_recieved_ = true;
-
-	// wait for 3 seconds at the start
-	/*
-	if (!initialized)
-	{
-		double curr_timer = get_clock()->now().seconds();
-		init_timer_ = get_clock()->now().seconds();
-		while (init_timer_ - curr_timer > 3.0)
-		{
-			prev_odometry_ = *msg;
-		}
-		initialized = true;
-	}
-
-	acceleration_ = (odometry_.twist.twist.linear.x - prev_odometry_.twist.twist.linear.x)/
-									(odometry_.header.stamp.sec - prev_odometry_.header.stamp.sec);
-
-	prev_odometry_ = odometry_;
-	*/								
+	odometry_recieved_ = true;							
 }
 
 void MPCPlanner::map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg)
@@ -84,36 +65,40 @@ void MPCPlanner::timer_callback()
 		// Set desired velocity
 		double ref_vel = setVelocity(std::get<1>(goal_tuple), path_msg_);
 
-		// Get Goal Yaw
-    tf2::Quaternion goal_quat_;
-    tf2::Matrix3x3 m;
-    tf2::fromMsg(std::get<0>(goal_tuple).orientation, goal_quat_);
-    m.setRotation(goal_quat_);
-    double goal_roll, goal_pitch, goal_yaw;
-    m.getRPY(goal_roll, goal_pitch, goal_yaw);
-
-		// Get Vehicle Yaw
-    tf2::Quaternion veh_quat_;
-    tf2::Matrix3x3 n;
-    tf2::fromMsg(odometry_.pose.pose.orientation, veh_quat_);
-    n.setRotation(veh_quat_);
-    double veh_roll, veh_pitch, veh_yaw;
-    n.getRPY(veh_roll, veh_pitch, veh_yaw);
+		// Tranform goal pose w.r.t base_link
+    refPose goal_st = transformGoalToBase(odometry_, std::get<0>(goal_tuple));
 
 		// Set the reference for MPC
 		Eigen::Vector4d yref;
-		yref(0) = std::get<0>(goal_tuple).position.x;
-		yref(1) = std::get<0>(goal_tuple).position.y;
-		yref(2) = goal_yaw;
+		yref(0) = goal_st.x;
+		yref(1) = goal_st.y;
+		yref(2) = goal_st.yaw;
 		yref(3) = ref_vel;
 
+		// Set the trajectory
+		Eigen::Matrix<double, 21, 2> traj_mat;
+		for(int i = 0; i < 21; ++i)
+		{
+			traj_mat(i, 0) = goal_st.x;
+			traj_mat(i, 1) = goal_st.y;
+		}
+
+		for(int i = 0; i < (std::get<1>(goal_tuple) - curr_index); ++i)
+		{
+			int start_idx = curr_index + i;
+      refPose inter_goal_st = transformGoalToBase(odometry_, path_msg_.points.at(start_idx).pose);
+			traj_mat(i, 0) = inter_goal_st.x;
+			traj_mat(i, 1) = inter_goal_st.y;
+		}
+
+		planner->setTrajectory(traj_mat);
 		// Set reference for controller
 		planner->setReference(yref);
 
 		Eigen::Vector4d modelX;
-		modelX(0) = odometry_.pose.pose.position.x;
-		modelX(1) = odometry_.pose.pose.position.y;
-		modelX(2) = veh_yaw;
+		modelX(0) = 0.0;
+		modelX(1) = 0.0;
+		modelX(2) = 0.0;
 		modelX(3) = odometry_.twist.twist.linear.x;
 
 		// Set the input for controller
@@ -124,8 +109,8 @@ void MPCPlanner::timer_callback()
 		planner->stepController();
 
 		// Get optimal states and inputs
-		std::unique_ptr<Eigen::MatrixXd> opt_states_ptr(new Eigen::MatrixXd(70, 4));
-		std::unique_ptr<Eigen::MatrixXd> opt_inputs_ptr(new Eigen::MatrixXd(70, 2));
+		std::unique_ptr<Eigen::MatrixXd> opt_states_ptr(new Eigen::MatrixXd(20, 4));
+		std::unique_ptr<Eigen::MatrixXd> opt_inputs_ptr(new Eigen::MatrixXd(20, 2));
 		planner->getOptimalStates(opt_states_ptr);
 		planner->getOptimalInputs(opt_inputs_ptr);
 
@@ -307,13 +292,13 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
   total_color.a = 1.0;
    
   visualization_msgs::msg::Marker lane_waypoint_marker;
-  lane_waypoint_marker.header.frame_id = "map";
+  lane_waypoint_marker.header.frame_id = "base_link";
   lane_waypoint_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
   lane_waypoint_marker.ns = "local_trajectory_marker";
   lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
   lane_waypoint_marker.action = visualization_msgs::msg::Marker::ADD;
-  lane_waypoint_marker.scale.x = 2.0;
-  lane_waypoint_marker.scale.y = 2.0;
+  lane_waypoint_marker.scale.x = 1.0;
+  lane_waypoint_marker.scale.y = 1.0;
   lane_waypoint_marker.color = total_color;
   lane_waypoint_marker.frame_locked = true;
 
@@ -336,13 +321,37 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
   goal_marker.ns = "goal_marker";
   goal_marker.type = visualization_msgs::msg::Marker::SPHERE;
   goal_marker.action = visualization_msgs::msg::Marker::ADD;
-  goal_marker.scale.x = 2.0;
-  goal_marker.scale.y = 2.0;
-	goal_marker.scale.z = 2.0;
+  goal_marker.scale.x = 1.0;
+  goal_marker.scale.y = 1.0;
+	goal_marker.scale.z = 1.0;
   goal_marker.color = total_color;
   goal_marker.frame_locked = true;
 	goal_marker.pose = goal_pose;
 
 	markerArray.markers.push_back(goal_marker);
 
+}
+
+MPCPlanner::refPose MPCPlanner::transformGoalToBase(const nav_msgs::msg::Odometry& veh_odom, const geometry_msgs::msg::Pose& goal_pose)
+{
+  refPose goal_struct;
+  geometry_msgs::msg::PoseStamped pose_in, pose_out;
+  pose_in.header = veh_odom.header;
+  pose_in.pose = goal_pose;
+
+  
+  tf_buffer_->transform<geometry_msgs::msg::PoseStamped>(pose_in, pose_out, "base_link",
+        tf2::Duration(std::chrono::milliseconds(50)));
+
+  goal_struct.x = pose_out.pose.position.x;
+  goal_struct.y = pose_out.pose.position.y;
+  goal_struct.yaw = tf2::getYaw(pose_out.pose.orientation); 
+
+  return goal_struct; 
+}
+
+void MPCPlanner::setupTF()
+{
+    tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 }

@@ -36,13 +36,13 @@
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_c/external_function_interface.h"
 
-#define NMPC_PLANNER_NX     4
+#define NMPC_PLANNER_NX     5
 #define NMPC_PLANNER_NZ     0
 #define NMPC_PLANNER_NU     2
 #define NMPC_PLANNER_NP     0
 #define NMPC_PLANNER_NBX    0
-#define NMPC_PLANNER_NBX0   4
-#define NMPC_PLANNER_NBU    2
+#define NMPC_PLANNER_NBX0   5
+#define NMPC_PLANNER_NBU    1
 #define NMPC_PLANNER_NSBX   0
 #define NMPC_PLANNER_NSBU   0
 #define NMPC_PLANNER_NSH    0
@@ -60,9 +60,9 @@
 #define NMPC_PLANNER_NG     0
 #define NMPC_PLANNER_NBXN   0
 #define NMPC_PLANNER_NGN    0
-#define NMPC_PLANNER_NY0    6
-#define NMPC_PLANNER_NY     6
-#define NMPC_PLANNER_NYN    4
+#define NMPC_PLANNER_NY0    7
+#define NMPC_PLANNER_NY     7
+#define NMPC_PLANNER_NYN    5
 #define NMPC_PLANNER_N      40
 #define NMPC_PLANNER_NH     0
 #define NMPC_PLANNER_NHN    0
@@ -96,8 +96,9 @@ typedef struct nmpc_planner_solver_capsule
     /* external functions */
     // dynamics
 
-    external_function_param_casadi *forw_vde_casadi;
-    external_function_param_casadi *expl_ode_fun;
+    external_function_param_casadi *impl_dae_fun;
+    external_function_param_casadi *impl_dae_fun_jac_x_xdot_z;
+    external_function_param_casadi *impl_dae_jac_x_xdot_u_z;
 
 
 

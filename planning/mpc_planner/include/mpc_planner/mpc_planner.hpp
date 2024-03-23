@@ -17,8 +17,12 @@
 #include <pluginlib/class_loader.hpp>
 
 // TF2
+#include <tf2/utils.h>
+#include <tf2/exceptions.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
+#include "tf2_ros/transform_listener.h"
+#include "tf2_ros/buffer.h"
 
 // Importing lanelet2 headers
 #include <lanelet2_extension/utility/message_conversion.hpp>
@@ -74,7 +78,16 @@ private:
 	double LOOK_AHEAD_TIME = 4.0;
 	int MIN_GOAL_IDX = 10;
 	int radius_inf = 500;
-	//Eigen::MatrixXd *opt_states(12,4), *opt_inputs(12,2);
+
+	struct refPose {
+		double x;
+		double y;
+		double yaw;
+	};
+
+	//tf2
+	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -84,6 +97,7 @@ private:
 
   // Functions
 	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
+	void setupTF();
 	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
 	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);
 	double getCurvature(std::array<int, 3>&, const autoware_planning_msgs::msg::Path&);
@@ -93,6 +107,7 @@ private:
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
 																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
+	refPose transformGoalToBase(const nav_msgs::msg::Odometry&, const geometry_msgs::msg::Pose&);																	
 
 };
 

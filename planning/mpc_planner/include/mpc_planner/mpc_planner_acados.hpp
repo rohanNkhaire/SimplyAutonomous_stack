@@ -25,6 +25,8 @@
 #include "blasfeo/include/blasfeo_d_aux_ext_dep.h"
 
 // TF2
+#include <tf2/utils.h>
+#include <tf2/exceptions.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_listener.h"
@@ -70,6 +72,10 @@ private:
 	rclcpp::TimerBase::SharedPtr timer_;
 	void timer_callback();
 
+	//tf2
+	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+
 	//Acados variables
 	nmpc_planner_solver_capsule *acados_ocp_capsule;
 	double* new_time_steps = nullptr;
@@ -99,8 +105,11 @@ private:
 	int MIN_GOAL_IDX = 6;
 	int radius_inf = 500;
 
-	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+	struct refPose {
+		double x;
+		double y;
+		double yaw;
+	};
 
 	// Lanelet
 	lanelet::LaneletMapPtr lanelet_map_ptr_;
@@ -110,7 +119,7 @@ private:
 
   // Functions
   void setMPCProblem();
-	void setTF();
+  void setupTF();
 	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
 	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
 	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);
@@ -121,7 +130,8 @@ private:
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
 																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
-
+	refPose transformGoalToBase(const nav_msgs::msg::Odometry&, const geometry_msgs::msg::Pose&);
+	double toDegree(const double&);
 };
 
 #endif //MPC_PLANNER__MPC_PLANNER_HPP_
