@@ -20,7 +20,7 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 
 
 	// Timer
-	timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&MPCPlanner::timer_callback, this));
+	timer_ = create_wall_timer(std::chrono::milliseconds(80), std::bind(&MPCPlanner::timer_callback, this));
 
 	setupTF();
 	planner->initialize();
@@ -54,7 +54,9 @@ void MPCPlanner::global_path_callback(const autoware_planning_msgs::msg::Path::C
 
 void MPCPlanner::timer_callback()
 {
-	if(path_recieved_)
+	bool transform_available = tf_buffer_->canTransform("base_link", "map", rclcpp::Time(), tf2::Duration(std::chrono::milliseconds(80)));
+
+	if(path_recieved_ && transform_available)
 	{
 		// Get current index on the global path
 		int curr_index = getCurrentIndex(path_msg_.points, odometry_);
@@ -76,19 +78,22 @@ void MPCPlanner::timer_callback()
 		yref(3) = ref_vel;
 
 		// Set the trajectory
-		Eigen::Matrix<double, 21, 2> traj_mat;
+		Eigen::Matrix<double, 21, 3> traj_mat;
 		for(int i = 0; i < 21; ++i)
 		{
 			traj_mat(i, 0) = goal_st.x;
 			traj_mat(i, 1) = goal_st.y;
+			traj_mat(i, 2) = goal_st.yaw;
 		}
-
-		for(int i = 0; i < (std::get<1>(goal_tuple) - curr_index); ++i)
+		
+		int end_idx = std::min((std::get<1>(goal_tuple) - curr_index), int(traj_mat.rows()));
+		for(int i = 0; i < end_idx; ++i)
 		{
 			int start_idx = curr_index + i;
       refPose inter_goal_st = transformGoalToBase(odometry_, path_msg_.points.at(start_idx).pose);
 			traj_mat(i, 0) = inter_goal_st.x;
 			traj_mat(i, 1) = inter_goal_st.y;
+			traj_mat(i, 2) = inter_goal_st.yaw;
 		}
 
 		planner->setTrajectory(traj_mat);
@@ -293,7 +298,7 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
    
   visualization_msgs::msg::Marker lane_waypoint_marker;
   lane_waypoint_marker.header.frame_id = "base_link";
-  lane_waypoint_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  lane_waypoint_marker.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
   lane_waypoint_marker.ns = "local_trajectory_marker";
   lane_waypoint_marker.type = visualization_msgs::msg::Marker::LINE_STRIP;
   lane_waypoint_marker.action = visualization_msgs::msg::Marker::ADD;
@@ -305,8 +310,7 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
   int count = 0;
   for (unsigned int i=0; i<lane_waypoints_array.points.size(); i++)
   {
-    geometry_msgs::msg::Point point;
-    point = lane_waypoints_array.points.at(i).pose.position;
+    geometry_msgs::msg::Point point = lane_waypoints_array.points.at(i).pose.position;
     lane_waypoint_marker.points.push_back(point);
 
     count++;
@@ -317,7 +321,7 @@ void MPCPlanner::createLocalPathMarker(const autoware_planning_msgs::msg::Trajec
 	// Goal Point
 	visualization_msgs::msg::Marker goal_marker;
   goal_marker.header.frame_id = "map";
-  goal_marker.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+  goal_marker.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
   goal_marker.ns = "goal_marker";
   goal_marker.type = visualization_msgs::msg::Marker::SPHERE;
   goal_marker.action = visualization_msgs::msg::Marker::ADD;
@@ -348,6 +352,22 @@ MPCPlanner::refPose MPCPlanner::transformGoalToBase(const nav_msgs::msg::Odometr
   goal_struct.yaw = tf2::getYaw(pose_out.pose.orientation); 
 
   return goal_struct; 
+}
+
+geometry_msgs::msg::Point MPCPlanner::transformBaseToMap(const geometry_msgs::msg::Pose& goal_pose)
+{
+  geometry_msgs::msg::Point out_point;
+  geometry_msgs::msg::PoseStamped pose_in, pose_out;
+  pose_in.header.stamp = rclcpp::Clock(RCL_SYSTEM_TIME).now();
+	pose_in.header.frame_id = "base_link";
+  pose_in.pose = goal_pose;
+
+  tf_buffer_->transform<geometry_msgs::msg::PoseStamped>(pose_in, pose_out, "map",
+        tf2::Duration(std::chrono::milliseconds(50)));
+
+	out_point = pose_out.pose.position;
+
+  return out_point; 
 }
 
 void MPCPlanner::setupTF()

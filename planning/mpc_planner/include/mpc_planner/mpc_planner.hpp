@@ -76,7 +76,7 @@ private:
 	double init_timer_;
 	double curr_velocity_;
 	double LOOK_AHEAD_TIME = 4.0;
-	int MIN_GOAL_IDX = 10;
+	int MIN_GOAL_IDX = 6;
 	int radius_inf = 500;
 
 	struct refPose {
@@ -107,7 +107,8 @@ private:
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
 																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
-	refPose transformGoalToBase(const nav_msgs::msg::Odometry&, const geometry_msgs::msg::Pose&);																	
+	refPose transformGoalToBase(const nav_msgs::msg::Odometry&, const geometry_msgs::msg::Pose&);		
+	geometry_msgs::msg::Point transformBaseToMap(const geometry_msgs::msg::Pose&);															
 
 };
 

@@ -64,7 +64,9 @@ void MPCPlanner::global_path_callback(const autoware_planning_msgs::msg::Path::C
 
 void MPCPlanner::timer_callback()
 {
-	if(path_recieved_)
+  bool transform_available = tf_buffer_->canTransform("base_link", "map", rclcpp::Time(),tf2::Duration(std::chrono::milliseconds(20)));
+
+	if(path_recieved_ && transform_available)
 	{
 		// Get current index on the global path
 		int curr_index = getCurrentIndex(path_msg_.points, odometry_);
