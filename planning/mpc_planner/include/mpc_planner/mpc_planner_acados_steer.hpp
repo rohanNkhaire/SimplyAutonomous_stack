@@ -1,9 +1,9 @@
 #ifndef MPC_PLANNER__MPC_PLANNER_HPP_
 #define MPC_PLANNER__MPC_PLANNER_HPP_
 
-#define NX     NMPC_PLANNER_NX
-#define NU     NMPC_PLANNER_NU
-#define NBX0   NMPC_PLANNER_NBX0
+#define NU     NMPC_PLANNER_STEER_NU
+#define NX     NMPC_PLANNER_STEER_NX
+#define NBX0   NMPC_PLANNER_STEER_NBX0
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -19,7 +19,7 @@
 #include "acados/utils/math.h"
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_c/external_function_interface.h"
-#include "acados_solver_nmpc_planner.h"
+#include "acados_solver_nmpc_planner_steer.h"
 
 // blasfeo
 #include "blasfeo/include/blasfeo_d_aux_ext_dep.h"
@@ -77,7 +77,7 @@ private:
   	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
 
 	//Acados variables
-	nmpc_planner_solver_capsule *acados_ocp_capsule;
+	nmpc_planner_steer_solver_capsule *acados_ocp_capsule;
 	double* new_time_steps = nullptr;
 	int status, N;
 	ocp_nlp_config *nlp_config;
@@ -101,7 +101,7 @@ private:
 	bool odometry_recieved_ = false;
 	double init_timer_;
 	double curr_velocity_;
-	double LOOK_AHEAD_TIME = 4.0;
+	double LOOK_AHEAD_TIME = 3.0;
 	int MIN_GOAL_IDX = 6;
 	int radius_inf = 500;
 
