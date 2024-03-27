@@ -33,7 +33,7 @@ ocp.dims.nu  = model.u.size()[0]
 ocp.dims.N   = N
 
 # set cost
-Q_mat = np.diag([2.5, 2.5, 1.2, 1.0, 0.0])  # [x,y,x_d,th]
+Q_mat = np.diag([2.5, 2.5, 1.2, 2.0, 0.0])  # [x,y,x_d,th]
 R_mat = np.diag([2, 22])
 Q_mat_e = np.diag([0.0, 0.0, 0.0, 0.0, 0.0])
 

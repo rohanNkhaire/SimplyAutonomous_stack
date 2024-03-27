@@ -109,9 +109,6 @@ void MPCPlanner::timer_callback()
     double utraj[80];
 
     // solve ocp in loop
-
-		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "START POINT: x:%f, y:%f, v:%f, th:%f", x_init[0], x_init[1], x_init[2], x_init[3]);
-		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "GOAL POINT: x:%f, y:%f, v:%f, th:%f", yref[0], yref[1], yref[2], yref[3]);
 		// initial condition
 		ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "lbx", x_init);
   	ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "ubx", x_init);
@@ -130,7 +127,7 @@ void MPCPlanner::timer_callback()
       // setting intermediate traj
       y_intermediate[0] = inter_goal_st.x;
       y_intermediate[1] = inter_goal_st.y;
-      y_intermediate[2] = 0.0;
+      y_intermediate[2] = ref_vel;
       y_intermediate[3] = inter_goal_st.yaw;
       y_intermediate[4] = 0.0;
 
@@ -309,10 +306,10 @@ autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(double s
     {
 	  	traj_point.acceleration_mps2 = inputs[(i*NX)];
 		  traj_point.heading_rate_rps = inputs[(i*NX)+1];
-      RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: u0:%f, u1:%f", inputs[(i*NX)], inputs[(i*NX)+1]);
+      //RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: u0:%f, u1:%f", inputs[(i*NX)], inputs[(i*NX)+1]);
     }
 
-		//RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
+		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
 		
 
 		local_traj.points.push_back(traj_point);

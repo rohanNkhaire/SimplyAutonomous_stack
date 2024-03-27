@@ -33,7 +33,7 @@ ocp.dims.nu  = model.u.size()[0]
 ocp.dims.N   = N
 
 # set cost
-Q_mat = np.diag([2.5, 2.5, 1.2, 1.0, 0.0])  # [x,y,x_d,th]
+Q_mat = np.diag([1.0, 2.5, 2.8, 2.0, 0.0])  # [x,y,x_d,th]
 R_mat = np.diag([2, 22])
 Q_mat_e = np.diag([0, 0, 0.0, 0.0, 0.0])
 
@@ -57,7 +57,7 @@ ocp.cost.yref_e = np.zeros((ny_e,))
 
 # set constraints
 ocp.constraints.lbu = np.array([-3.0, -0.7])
-ocp.constraints.ubu = np.array([+0.25, +0.7])
+ocp.constraints.ubu = np.array([+0.75, +0.7])
 ocp.constraints.idxbu = np.array([0, 1])
 ocp.constraints.x0 = np.array([0, 0, 0, 0, 0])
 

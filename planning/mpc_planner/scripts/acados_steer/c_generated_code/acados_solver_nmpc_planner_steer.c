@@ -147,7 +147,7 @@ void nmpc_planner_steer_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan
 
     nlp_solver_plan->nlp_solver = SQP;
 
-    nlp_solver_plan->ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_OSQP;
+    nlp_solver_plan->ocp_qp_solver_plan.qp_solver = FULL_CONDENSING_HPIPM;
 
     nlp_solver_plan->nlp_cost[0] = LINEAR_LS;
     for (int i = 1; i < N; i++)
@@ -397,10 +397,10 @@ void nmpc_planner_steer_acados_create_5_set_nlp_in(nmpc_planner_steer_solver_cap
 
    double* W_0 = calloc(NY0*NY0, sizeof(double));
     // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 2.5;
+    W_0[0+(NY0) * 0] = 1;
     W_0[1+(NY0) * 1] = 2.5;
-    W_0[2+(NY0) * 2] = 1.2;
-    W_0[3+(NY0) * 3] = 1;
+    W_0[2+(NY0) * 2] = 2.8;
+    W_0[3+(NY0) * 3] = 2;
     W_0[5+(NY0) * 5] = 2;
     W_0[6+(NY0) * 6] = 22;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
@@ -430,10 +430,10 @@ void nmpc_planner_steer_acados_create_5_set_nlp_in(nmpc_planner_steer_solver_cap
     free(yref);
     double* W = calloc(NY*NY, sizeof(double));
     // change only the non-zero elements:
-    W[0+(NY) * 0] = 2.5;
+    W[0+(NY) * 0] = 1;
     W[1+(NY) * 1] = 2.5;
-    W[2+(NY) * 2] = 1.2;
-    W[3+(NY) * 3] = 1;
+    W[2+(NY) * 2] = 2.8;
+    W[3+(NY) * 3] = 2;
     W[5+(NY) * 5] = 2;
     W[6+(NY) * 6] = 22;
 
@@ -542,7 +542,7 @@ void nmpc_planner_steer_acados_create_5_set_nlp_in(nmpc_planner_steer_solver_cap
     double* ubu = lubu + NBU;
     
     lbu[0] = -3;
-    ubu[0] = 0.25;
+    ubu[0] = 0.75;
     lbu[1] = -0.7;
     ubu[1] = 0.7;
 
@@ -637,13 +637,11 @@ int fixed_hess = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "levenberg_marquardt", &levenberg_marquardt);
 
     /* options QP solver */
-    int qp_solver_cond_N;
-    // NOTE: there is no condensing happening here!
-    qp_solver_cond_N = N;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_N", &qp_solver_cond_N);
 
     int nlp_solver_ext_qp_res = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "ext_qp_res", &nlp_solver_ext_qp_res);
+    // set HPIPM mode: should be done before setting other QP solver options
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_hpipm_mode", "BALANCE");
 
 
     // set SQP specific options
@@ -674,9 +672,6 @@ int fixed_hess = 0;
 
     int print_level = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "print_level", &print_level);
-    int qp_solver_cond_ric_alg = 1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_ric_alg", &qp_solver_cond_ric_alg);
-
 
     int ext_cost_num_hess = 0;
 }
@@ -793,22 +788,9 @@ int nmpc_planner_steer_acados_create_with_discretization(nmpc_planner_steer_solv
  */
 int nmpc_planner_steer_acados_update_qp_solver_cond_N(nmpc_planner_steer_solver_capsule* capsule, int qp_solver_cond_N)
 {
-    // 1) destroy solver
-    ocp_nlp_solver_destroy(capsule->nlp_solver);
-
-    // 2) set new value for "qp_cond_N"
-    const int N = capsule->nlp_solver_plan->N;
-    if(qp_solver_cond_N > N)
-        printf("Warning: qp_solver_cond_N = %d > N = %d\n", qp_solver_cond_N, N);
-    ocp_nlp_solver_opts_set(capsule->nlp_config, capsule->nlp_opts, "qp_cond_N", &qp_solver_cond_N);
-
-    // 3) continue with the remaining steps from nmpc_planner_steer_acados_create_with_discretization(...):
-    // -> 8) create solver
-    capsule->nlp_solver = ocp_nlp_solver_create(capsule->nlp_config, capsule->nlp_dims, capsule->nlp_opts);
-
-    // -> 9) do precomputations
-    int status = nmpc_planner_steer_acados_create_9_precompute(capsule);
-    return status;
+    printf("\nacados_update_qp_solver_cond_N() not implemented, since no partial condensing solver is used!\n\n");
+    exit(1);
+    return -1;
 }
 
 

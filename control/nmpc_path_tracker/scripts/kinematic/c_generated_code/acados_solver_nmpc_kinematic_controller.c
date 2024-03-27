@@ -38,83 +38,83 @@
 #include "acados_c/external_function_interface.h"
 
 // example specific
-#include "nmpc_planner_model/nmpc_planner_model.h"
+#include "nmpc_kinematic_controller_model/nmpc_kinematic_controller_model.h"
 
 
 
-#include "acados_solver_nmpc_planner.h"
+#include "acados_solver_nmpc_kinematic_controller.h"
 
-#define NX     NMPC_PLANNER_NX
-#define NZ     NMPC_PLANNER_NZ
-#define NU     NMPC_PLANNER_NU
-#define NP     NMPC_PLANNER_NP
-#define NY0    NMPC_PLANNER_NY0
-#define NY     NMPC_PLANNER_NY
-#define NYN    NMPC_PLANNER_NYN
+#define NX     NMPC_KINEMATIC_CONTROLLER_NX
+#define NZ     NMPC_KINEMATIC_CONTROLLER_NZ
+#define NU     NMPC_KINEMATIC_CONTROLLER_NU
+#define NP     NMPC_KINEMATIC_CONTROLLER_NP
+#define NY0    NMPC_KINEMATIC_CONTROLLER_NY0
+#define NY     NMPC_KINEMATIC_CONTROLLER_NY
+#define NYN    NMPC_KINEMATIC_CONTROLLER_NYN
 
-#define NBX    NMPC_PLANNER_NBX
-#define NBX0   NMPC_PLANNER_NBX0
-#define NBU    NMPC_PLANNER_NBU
-#define NG     NMPC_PLANNER_NG
-#define NBXN   NMPC_PLANNER_NBXN
-#define NGN    NMPC_PLANNER_NGN
+#define NBX    NMPC_KINEMATIC_CONTROLLER_NBX
+#define NBX0   NMPC_KINEMATIC_CONTROLLER_NBX0
+#define NBU    NMPC_KINEMATIC_CONTROLLER_NBU
+#define NG     NMPC_KINEMATIC_CONTROLLER_NG
+#define NBXN   NMPC_KINEMATIC_CONTROLLER_NBXN
+#define NGN    NMPC_KINEMATIC_CONTROLLER_NGN
 
-#define NH     NMPC_PLANNER_NH
-#define NHN    NMPC_PLANNER_NHN
-#define NH0    NMPC_PLANNER_NH0
-#define NPHI   NMPC_PLANNER_NPHI
-#define NPHIN  NMPC_PLANNER_NPHIN
-#define NPHI0  NMPC_PLANNER_NPHI0
-#define NR     NMPC_PLANNER_NR
+#define NH     NMPC_KINEMATIC_CONTROLLER_NH
+#define NHN    NMPC_KINEMATIC_CONTROLLER_NHN
+#define NH0    NMPC_KINEMATIC_CONTROLLER_NH0
+#define NPHI   NMPC_KINEMATIC_CONTROLLER_NPHI
+#define NPHIN  NMPC_KINEMATIC_CONTROLLER_NPHIN
+#define NPHI0  NMPC_KINEMATIC_CONTROLLER_NPHI0
+#define NR     NMPC_KINEMATIC_CONTROLLER_NR
 
-#define NS     NMPC_PLANNER_NS
-#define NS0    NMPC_PLANNER_NS0
-#define NSN    NMPC_PLANNER_NSN
+#define NS     NMPC_KINEMATIC_CONTROLLER_NS
+#define NS0    NMPC_KINEMATIC_CONTROLLER_NS0
+#define NSN    NMPC_KINEMATIC_CONTROLLER_NSN
 
-#define NSBX   NMPC_PLANNER_NSBX
-#define NSBU   NMPC_PLANNER_NSBU
-#define NSH0   NMPC_PLANNER_NSH0
-#define NSH    NMPC_PLANNER_NSH
-#define NSHN   NMPC_PLANNER_NSHN
-#define NSG    NMPC_PLANNER_NSG
-#define NSPHI0 NMPC_PLANNER_NSPHI0
-#define NSPHI  NMPC_PLANNER_NSPHI
-#define NSPHIN NMPC_PLANNER_NSPHIN
-#define NSGN   NMPC_PLANNER_NSGN
-#define NSBXN  NMPC_PLANNER_NSBXN
+#define NSBX   NMPC_KINEMATIC_CONTROLLER_NSBX
+#define NSBU   NMPC_KINEMATIC_CONTROLLER_NSBU
+#define NSH0   NMPC_KINEMATIC_CONTROLLER_NSH0
+#define NSH    NMPC_KINEMATIC_CONTROLLER_NSH
+#define NSHN   NMPC_KINEMATIC_CONTROLLER_NSHN
+#define NSG    NMPC_KINEMATIC_CONTROLLER_NSG
+#define NSPHI0 NMPC_KINEMATIC_CONTROLLER_NSPHI0
+#define NSPHI  NMPC_KINEMATIC_CONTROLLER_NSPHI
+#define NSPHIN NMPC_KINEMATIC_CONTROLLER_NSPHIN
+#define NSGN   NMPC_KINEMATIC_CONTROLLER_NSGN
+#define NSBXN  NMPC_KINEMATIC_CONTROLLER_NSBXN
 
 
 
 // ** solver data **
 
-nmpc_planner_solver_capsule * nmpc_planner_acados_create_capsule(void)
+nmpc_kinematic_controller_solver_capsule * nmpc_kinematic_controller_acados_create_capsule(void)
 {
-    void* capsule_mem = malloc(sizeof(nmpc_planner_solver_capsule));
-    nmpc_planner_solver_capsule *capsule = (nmpc_planner_solver_capsule *) capsule_mem;
+    void* capsule_mem = malloc(sizeof(nmpc_kinematic_controller_solver_capsule));
+    nmpc_kinematic_controller_solver_capsule *capsule = (nmpc_kinematic_controller_solver_capsule *) capsule_mem;
 
     return capsule;
 }
 
 
-int nmpc_planner_acados_free_capsule(nmpc_planner_solver_capsule *capsule)
+int nmpc_kinematic_controller_acados_free_capsule(nmpc_kinematic_controller_solver_capsule *capsule)
 {
     free(capsule);
     return 0;
 }
 
 
-int nmpc_planner_acados_create(nmpc_planner_solver_capsule* capsule)
+int nmpc_kinematic_controller_acados_create(nmpc_kinematic_controller_solver_capsule* capsule)
 {
-    int N_shooting_intervals = NMPC_PLANNER_N;
+    int N_shooting_intervals = NMPC_KINEMATIC_CONTROLLER_N;
     double* new_time_steps = NULL; // NULL -> don't alter the code generated time-steps
-    return nmpc_planner_acados_create_with_discretization(capsule, N_shooting_intervals, new_time_steps);
+    return nmpc_kinematic_controller_acados_create_with_discretization(capsule, N_shooting_intervals, new_time_steps);
 }
 
 
-int nmpc_planner_acados_update_time_steps(nmpc_planner_solver_capsule* capsule, int N, double* new_time_steps)
+int nmpc_kinematic_controller_acados_update_time_steps(nmpc_kinematic_controller_solver_capsule* capsule, int N, double* new_time_steps)
 {
     if (N != capsule->nlp_solver_plan->N) {
-        fprintf(stderr, "nmpc_planner_acados_update_time_steps: given number of time steps (= %d) " \
+        fprintf(stderr, "nmpc_kinematic_controller_acados_update_time_steps: given number of time steps (= %d) " \
             "differs from the currently allocated number of " \
             "time steps (= %d)!\n" \
             "Please recreate with new discretization and provide a new vector of time_stamps!\n",
@@ -135,9 +135,9 @@ int nmpc_planner_acados_update_time_steps(nmpc_planner_solver_capsule* capsule, 
 }
 
 /**
- * Internal function for nmpc_planner_acados_create: step 1
+ * Internal function for nmpc_kinematic_controller_acados_create: step 1
  */
-void nmpc_planner_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan, const int N)
+void nmpc_kinematic_controller_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan, const int N)
 {
     assert(N == nlp_solver_plan->N);
 
@@ -147,7 +147,7 @@ void nmpc_planner_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan, cons
 
     nlp_solver_plan->nlp_solver = SQP;
 
-    nlp_solver_plan->ocp_qp_solver_plan.qp_solver = PARTIAL_CONDENSING_HPIPM;
+    nlp_solver_plan->ocp_qp_solver_plan.qp_solver = FULL_CONDENSING_HPIPM;
 
     nlp_solver_plan->nlp_cost[0] = LINEAR_LS;
     for (int i = 1; i < N; i++)
@@ -174,9 +174,9 @@ void nmpc_planner_acados_create_1_set_plan(ocp_nlp_plan_t* nlp_solver_plan, cons
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 2
+ * Internal function for nmpc_kinematic_controller_acados_create: step 2
  */
-ocp_nlp_dims* nmpc_planner_acados_create_2_create_and_set_dimensions(nmpc_planner_solver_capsule* capsule)
+ocp_nlp_dims* nmpc_kinematic_controller_acados_create_2_create_and_set_dimensions(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     ocp_nlp_plan_t* nlp_solver_plan = capsule->nlp_solver_plan;
     const int N = nlp_solver_plan->N;
@@ -234,7 +234,7 @@ ocp_nlp_dims* nmpc_planner_acados_create_2_create_and_set_dimensions(nmpc_planne
     nbx[0] = NBX0;
     nsbx[0] = 0;
     ns[0] = NS0;
-    nbxe[0] = 5;
+    nbxe[0] = 4;
     ny[0] = NY0;
     nh[0] = NH0;
     nsh[0] = NSH0;
@@ -302,9 +302,9 @@ ocp_nlp_dims* nmpc_planner_acados_create_2_create_and_set_dimensions(nmpc_planne
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 3
+ * Internal function for nmpc_kinematic_controller_acados_create: step 3
  */
-void nmpc_planner_acados_create_3_create_and_set_functions(nmpc_planner_solver_capsule* capsule)
+void nmpc_kinematic_controller_acados_create_3_create_and_set_functions(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     const int N = capsule->nlp_solver_plan->N;
 
@@ -320,19 +320,19 @@ void nmpc_planner_acados_create_3_create_and_set_functions(nmpc_planner_solver_c
         capsule->__CAPSULE_FNC__.casadi_sparsity_in = & __MODEL_BASE_FNC__ ## _sparsity_in; \
         capsule->__CAPSULE_FNC__.casadi_sparsity_out = & __MODEL_BASE_FNC__ ## _sparsity_out; \
         capsule->__CAPSULE_FNC__.casadi_work = & __MODEL_BASE_FNC__ ## _work; \
-        external_function_param_casadi_create(&capsule->__CAPSULE_FNC__ , 0); \
+        external_function_param_casadi_create(&capsule->__CAPSULE_FNC__ , 1); \
     } while(false)
 
 
     // explicit ode
     capsule->forw_vde_casadi = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*N);
     for (int i = 0; i < N; i++) {
-        MAP_CASADI_FNC(forw_vde_casadi[i], nmpc_planner_expl_vde_forw);
+        MAP_CASADI_FNC(forw_vde_casadi[i], nmpc_kinematic_controller_expl_vde_forw);
     }
 
     capsule->expl_ode_fun = (external_function_param_casadi *) malloc(sizeof(external_function_param_casadi)*N);
     for (int i = 0; i < N; i++) {
-        MAP_CASADI_FNC(expl_ode_fun[i], nmpc_planner_expl_ode_fun);
+        MAP_CASADI_FNC(expl_ode_fun[i], nmpc_kinematic_controller_expl_ode_fun);
     }
 
 
@@ -342,17 +342,24 @@ void nmpc_planner_acados_create_3_create_and_set_functions(nmpc_planner_solver_c
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 4
+ * Internal function for nmpc_kinematic_controller_acados_create: step 4
  */
-void nmpc_planner_acados_create_4_set_default_parameters(nmpc_planner_solver_capsule* capsule) {
-    // no parameters defined
+void nmpc_kinematic_controller_acados_create_4_set_default_parameters(nmpc_kinematic_controller_solver_capsule* capsule) {
+    const int N = capsule->nlp_solver_plan->N;
+    // initialize parameters to nominal value
+    double* p = calloc(NP, sizeof(double));
+
+    for (int i = 0; i <= N; i++) {
+        nmpc_kinematic_controller_acados_update_params(capsule, i, p, NP);
+    }
+    free(p);
 }
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 5
+ * Internal function for nmpc_kinematic_controller_acados_create: step 5
  */
-void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsule, const int N, double* new_time_steps)
+void nmpc_kinematic_controller_acados_create_5_set_nlp_in(nmpc_kinematic_controller_solver_capsule* capsule, const int N, double* new_time_steps)
 {
     assert(N == capsule->nlp_solver_plan->N);
     ocp_nlp_config* nlp_config = capsule->nlp_config;
@@ -371,7 +378,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
 
     if (new_time_steps)
     {
-        nmpc_planner_acados_update_time_steps(capsule, N, new_time_steps);
+        nmpc_kinematic_controller_acados_update_time_steps(capsule, N, new_time_steps);
     }
     else
     {double time_step = 0.1;
@@ -400,9 +407,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     W_0[0+(NY0) * 0] = 2.5;
     W_0[1+(NY0) * 1] = 2.5;
     W_0[2+(NY0) * 2] = 1.2;
-    W_0[3+(NY0) * 3] = 2;
-    W_0[5+(NY0) * 5] = 2;
-    W_0[6+(NY0) * 6] = 22;
+    W_0[4+(NY0) * 4] = 0.1;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
     free(W_0);
     double* Vx_0 = calloc(NY0*NX, sizeof(double));
@@ -411,13 +416,11 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     Vx_0[1+(NY0) * 1] = 1;
     Vx_0[2+(NY0) * 2] = 1;
     Vx_0[3+(NY0) * 3] = 1;
-    Vx_0[4+(NY0) * 4] = 1;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Vx", Vx_0);
     free(Vx_0);
     double* Vu_0 = calloc(NY0*NU, sizeof(double));
     // change only the non-zero elements:
-    Vu_0[5+(NY0) * 0] = 1;
-    Vu_0[6+(NY0) * 1] = 1;
+    Vu_0[4+(NY0) * 0] = 1;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "Vu", Vu_0);
     free(Vu_0);
     double* yref = calloc(NY, sizeof(double));
@@ -433,9 +436,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     W[0+(NY) * 0] = 2.5;
     W[1+(NY) * 1] = 2.5;
     W[2+(NY) * 2] = 1.2;
-    W[3+(NY) * 3] = 2;
-    W[5+(NY) * 5] = 2;
-    W[6+(NY) * 6] = 22;
+    W[4+(NY) * 4] = 0.1;
 
     for (int i = 1; i < N; i++)
     {
@@ -448,7 +449,6 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     Vx[1+(NY) * 1] = 1;
     Vx[2+(NY) * 2] = 1;
     Vx[3+(NY) * 3] = 1;
-    Vx[4+(NY) * 4] = 1;
     for (int i = 1; i < N; i++)
     {
         ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "Vx", Vx);
@@ -459,8 +459,7 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     double* Vu = calloc(NY*NU, sizeof(double));
     // change only the non-zero elements:
     
-    Vu[5+(NY) * 0] = 1;
-    Vu[6+(NY) * 1] = 1;
+    Vu[4+(NY) * 0] = 1;
 
     for (int i = 1; i < N; i++)
     {
@@ -483,7 +482,6 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     Vx_e[1+(NYN) * 1] = 1;
     Vx_e[2+(NYN) * 2] = 1;
     Vx_e[3+(NYN) * 3] = 1;
-    Vx_e[4+(NYN) * 4] = 1;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, N, "Vx", Vx_e);
     free(Vx_e);
 
@@ -501,7 +499,6 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     idxbx0[1] = 1;
     idxbx0[2] = 2;
     idxbx0[3] = 3;
-    idxbx0[4] = 4;
 
     double* lubx0 = calloc(2*NBX0, sizeof(double));
     double* lbx0 = lubx0;
@@ -514,13 +511,12 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     free(idxbx0);
     free(lubx0);
     // idxbxe_0
-    int* idxbxe_0 = malloc(5 * sizeof(int));
+    int* idxbxe_0 = malloc(4 * sizeof(int));
     
     idxbxe_0[0] = 0;
     idxbxe_0[1] = 1;
     idxbxe_0[2] = 2;
     idxbxe_0[3] = 3;
-    idxbxe_0[4] = 4;
     ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "idxbxe", idxbxe_0);
     free(idxbxe_0);
 
@@ -540,8 +536,8 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
     double* lbu = lubu;
     double* ubu = lubu + NBU;
     
-    lbu[0] = -3;
-    ubu[0] = 0.75;
+    lbu[0] = -0.7;
+    ubu[0] = 0.7;
 
     for (int i = 0; i < N; i++)
     {
@@ -584,9 +580,9 @@ void nmpc_planner_acados_create_5_set_nlp_in(nmpc_planner_solver_capsule* capsul
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 6
+ * Internal function for nmpc_kinematic_controller_acados_create: step 6
  */
-void nmpc_planner_acados_create_6_set_opts(nmpc_planner_solver_capsule* capsule)
+void nmpc_kinematic_controller_acados_create_6_set_opts(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     const int N = capsule->nlp_solver_plan->N;
     ocp_nlp_config* nlp_config = capsule->nlp_config;
@@ -634,10 +630,6 @@ int fixed_hess = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "levenberg_marquardt", &levenberg_marquardt);
 
     /* options QP solver */
-    int qp_solver_cond_N;
-    // NOTE: there is no condensing happening here!
-    qp_solver_cond_N = N;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_N", &qp_solver_cond_N);
 
     int nlp_solver_ext_qp_res = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "ext_qp_res", &nlp_solver_ext_qp_res);
@@ -664,28 +656,24 @@ int fixed_hess = 0;
     int initialize_t_slacks = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "initialize_t_slacks", &initialize_t_slacks);
 
-    int qp_solver_iter_max = 50;
+    int qp_solver_iter_max = 100;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_iter_max", &qp_solver_iter_max);
 
 
+    int qp_solver_warm_start = 1;
+    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_warm_start", &qp_solver_warm_start);
 
     int print_level = 0;
     ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "print_level", &print_level);
-    int qp_solver_cond_ric_alg = 1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_cond_ric_alg", &qp_solver_cond_ric_alg);
-
-    int qp_solver_ric_alg = 1;
-    ocp_nlp_solver_opts_set(nlp_config, nlp_opts, "qp_ric_alg", &qp_solver_ric_alg);
-
 
     int ext_cost_num_hess = 0;
 }
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 7
+ * Internal function for nmpc_kinematic_controller_acados_create: step 7
  */
-void nmpc_planner_acados_create_7_set_nlp_out(nmpc_planner_solver_capsule* capsule)
+void nmpc_kinematic_controller_acados_create_7_set_nlp_out(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     const int N = capsule->nlp_solver_plan->N;
     ocp_nlp_config* nlp_config = capsule->nlp_config;
@@ -715,17 +703,17 @@ void nmpc_planner_acados_create_7_set_nlp_out(nmpc_planner_solver_capsule* capsu
 
 
 /**
- * Internal function for nmpc_planner_acados_create: step 8
+ * Internal function for nmpc_kinematic_controller_acados_create: step 8
  */
-//void nmpc_planner_acados_create_8_create_solver(nmpc_planner_solver_capsule* capsule)
+//void nmpc_kinematic_controller_acados_create_8_create_solver(nmpc_kinematic_controller_solver_capsule* capsule)
 //{
 //    capsule->nlp_solver = ocp_nlp_solver_create(capsule->nlp_config, capsule->nlp_dims, capsule->nlp_opts);
 //}
 
 /**
- * Internal function for nmpc_planner_acados_create: step 9
+ * Internal function for nmpc_kinematic_controller_acados_create: step 9
  */
-int nmpc_planner_acados_create_9_precompute(nmpc_planner_solver_capsule* capsule) {
+int nmpc_kinematic_controller_acados_create_9_precompute(nmpc_kinematic_controller_solver_capsule* capsule) {
     int status = ocp_nlp_precompute(capsule->nlp_solver, capsule->nlp_in, capsule->nlp_out);
 
     if (status != ACADOS_SUCCESS) {
@@ -737,14 +725,14 @@ int nmpc_planner_acados_create_9_precompute(nmpc_planner_solver_capsule* capsule
 }
 
 
-int nmpc_planner_acados_create_with_discretization(nmpc_planner_solver_capsule* capsule, int N, double* new_time_steps)
+int nmpc_kinematic_controller_acados_create_with_discretization(nmpc_kinematic_controller_solver_capsule* capsule, int N, double* new_time_steps)
 {
     // If N does not match the number of shooting intervals used for code generation, new_time_steps must be given.
-    if (N != NMPC_PLANNER_N && !new_time_steps) {
-        fprintf(stderr, "nmpc_planner_acados_create_with_discretization: new_time_steps is NULL " \
+    if (N != NMPC_KINEMATIC_CONTROLLER_N && !new_time_steps) {
+        fprintf(stderr, "nmpc_kinematic_controller_acados_create_with_discretization: new_time_steps is NULL " \
             "but the number of shooting intervals (= %d) differs from the number of " \
             "shooting intervals (= %d) during code generation! Please provide a new vector of time_stamps!\n", \
-             N, NMPC_PLANNER_N);
+             N, NMPC_KINEMATIC_CONTROLLER_N);
         return 1;
     }
 
@@ -753,37 +741,37 @@ int nmpc_planner_acados_create_with_discretization(nmpc_planner_solver_capsule* 
 
     // 1) create and set nlp_solver_plan; create nlp_config
     capsule->nlp_solver_plan = ocp_nlp_plan_create(N);
-    nmpc_planner_acados_create_1_set_plan(capsule->nlp_solver_plan, N);
+    nmpc_kinematic_controller_acados_create_1_set_plan(capsule->nlp_solver_plan, N);
     capsule->nlp_config = ocp_nlp_config_create(*capsule->nlp_solver_plan);
 
     // 3) create and set dimensions
-    capsule->nlp_dims = nmpc_planner_acados_create_2_create_and_set_dimensions(capsule);
-    nmpc_planner_acados_create_3_create_and_set_functions(capsule);
+    capsule->nlp_dims = nmpc_kinematic_controller_acados_create_2_create_and_set_dimensions(capsule);
+    nmpc_kinematic_controller_acados_create_3_create_and_set_functions(capsule);
 
     // 4) set default parameters in functions
-    nmpc_planner_acados_create_4_set_default_parameters(capsule);
+    nmpc_kinematic_controller_acados_create_4_set_default_parameters(capsule);
 
     // 5) create and set nlp_in
     capsule->nlp_in = ocp_nlp_in_create(capsule->nlp_config, capsule->nlp_dims);
-    nmpc_planner_acados_create_5_set_nlp_in(capsule, N, new_time_steps);
+    nmpc_kinematic_controller_acados_create_5_set_nlp_in(capsule, N, new_time_steps);
 
     // 6) create and set nlp_opts
     capsule->nlp_opts = ocp_nlp_solver_opts_create(capsule->nlp_config, capsule->nlp_dims);
-    nmpc_planner_acados_create_6_set_opts(capsule);
+    nmpc_kinematic_controller_acados_create_6_set_opts(capsule);
 
     // 7) create and set nlp_out
     // 7.1) nlp_out
     capsule->nlp_out = ocp_nlp_out_create(capsule->nlp_config, capsule->nlp_dims);
     // 7.2) sens_out
     capsule->sens_out = ocp_nlp_out_create(capsule->nlp_config, capsule->nlp_dims);
-    nmpc_planner_acados_create_7_set_nlp_out(capsule);
+    nmpc_kinematic_controller_acados_create_7_set_nlp_out(capsule);
 
     // 8) create solver
     capsule->nlp_solver = ocp_nlp_solver_create(capsule->nlp_config, capsule->nlp_dims, capsule->nlp_opts);
-    //nmpc_planner_acados_create_8_create_solver(capsule);
+    //nmpc_kinematic_controller_acados_create_8_create_solver(capsule);
 
     // 9) do precomputations
-    int status = nmpc_planner_acados_create_9_precompute(capsule);
+    int status = nmpc_kinematic_controller_acados_create_9_precompute(capsule);
 
     return status;
 }
@@ -791,28 +779,15 @@ int nmpc_planner_acados_create_with_discretization(nmpc_planner_solver_capsule* 
 /**
  * This function is for updating an already initialized solver with a different number of qp_cond_N. It is useful for code reuse after code export.
  */
-int nmpc_planner_acados_update_qp_solver_cond_N(nmpc_planner_solver_capsule* capsule, int qp_solver_cond_N)
+int nmpc_kinematic_controller_acados_update_qp_solver_cond_N(nmpc_kinematic_controller_solver_capsule* capsule, int qp_solver_cond_N)
 {
-    // 1) destroy solver
-    ocp_nlp_solver_destroy(capsule->nlp_solver);
-
-    // 2) set new value for "qp_cond_N"
-    const int N = capsule->nlp_solver_plan->N;
-    if(qp_solver_cond_N > N)
-        printf("Warning: qp_solver_cond_N = %d > N = %d\n", qp_solver_cond_N, N);
-    ocp_nlp_solver_opts_set(capsule->nlp_config, capsule->nlp_opts, "qp_cond_N", &qp_solver_cond_N);
-
-    // 3) continue with the remaining steps from nmpc_planner_acados_create_with_discretization(...):
-    // -> 8) create solver
-    capsule->nlp_solver = ocp_nlp_solver_create(capsule->nlp_config, capsule->nlp_dims, capsule->nlp_opts);
-
-    // -> 9) do precomputations
-    int status = nmpc_planner_acados_create_9_precompute(capsule);
-    return status;
+    printf("\nacados_update_qp_solver_cond_N() not implemented, since no partial condensing solver is used!\n\n");
+    exit(1);
+    return -1;
 }
 
 
-int nmpc_planner_acados_reset(nmpc_planner_solver_capsule* capsule, int reset_qp_solver_mem)
+int nmpc_kinematic_controller_acados_reset(nmpc_kinematic_controller_solver_capsule* capsule, int reset_qp_solver_mem)
 {
 
     // set initialization to all zeros
@@ -840,14 +815,6 @@ int nmpc_planner_acados_reset(nmpc_planner_solver_capsule* capsule, int reset_qp
             ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "pi", buffer);
         }
     }
-    // get qp_status: if NaN -> reset memory
-    int qp_status;
-    ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "qp_status", &qp_status);
-    if (reset_qp_solver_mem || (qp_status == 3))
-    {
-        // printf("\nin reset qp_status %d -> resetting QP memory\n", qp_status);
-        ocp_nlp_solver_reset_qp_memory(nlp_solver, nlp_in, nlp_out);
-    }
 
     free(buffer);
     return 0;
@@ -856,11 +823,11 @@ int nmpc_planner_acados_reset(nmpc_planner_solver_capsule* capsule, int reset_qp
 
 
 
-int nmpc_planner_acados_update_params(nmpc_planner_solver_capsule* capsule, int stage, double *p, int np)
+int nmpc_kinematic_controller_acados_update_params(nmpc_kinematic_controller_solver_capsule* capsule, int stage, double *p, int np)
 {
     int solver_status = 0;
 
-    int casadi_np = 0;
+    int casadi_np = 1;
     if (casadi_np != np) {
         printf("acados_update_params: trying to set %i parameters for external functions."
             " External function has %i parameters. Exiting.\n", np, casadi_np);
@@ -901,30 +868,59 @@ int nmpc_planner_acados_update_params(nmpc_planner_solver_capsule* capsule, int 
 }
 
 
-int nmpc_planner_acados_update_params_sparse(nmpc_planner_solver_capsule * capsule, int stage, int *idx, double *p, int n_update)
+int nmpc_kinematic_controller_acados_update_params_sparse(nmpc_kinematic_controller_solver_capsule * capsule, int stage, int *idx, double *p, int n_update)
 {
     int solver_status = 0;
 
-    int casadi_np = 0;
+    int casadi_np = 1;
     if (casadi_np < n_update) {
-        printf("nmpc_planner_acados_update_params_sparse: trying to set %d parameters for external functions."
+        printf("nmpc_kinematic_controller_acados_update_params_sparse: trying to set %d parameters for external functions."
             " External function has %d parameters. Exiting.\n", n_update, casadi_np);
         exit(1);
     }
     // for (int i = 0; i < n_update; i++)
     // {
     //     if (idx[i] > casadi_np) {
-    //         printf("nmpc_planner_acados_update_params_sparse: attempt to set parameters with index %d, while"
+    //         printf("nmpc_kinematic_controller_acados_update_params_sparse: attempt to set parameters with index %d, while"
     //             " external functions only has %d parameters. Exiting.\n", idx[i], casadi_np);
     //         exit(1);
     //     }
     //     printf("param %d value %e\n", idx[i], p[i]);
     // }
+    const int N = capsule->nlp_solver_plan->N;
+    if (stage < N && stage >= 0)
+    {
+        capsule->forw_vde_casadi[stage].set_param_sparse(capsule->forw_vde_casadi+stage, n_update, idx, p);
+        capsule->expl_ode_fun[stage].set_param_sparse(capsule->expl_ode_fun+stage, n_update, idx, p);
+    
+
+        // cost & constraints
+        if (stage == 0)
+        {
+            // cost
+            // constraints
+        
+        }
+        else // 0 < stage < N
+        {
+
+        
+        }
+    }
+
+    else // stage == N
+    {
+        // terminal shooting node has no dynamics
+        // cost
+        // constraints
+    
+    }
+
 
     return solver_status;
 }
 
-int nmpc_planner_acados_solve(nmpc_planner_solver_capsule* capsule)
+int nmpc_kinematic_controller_acados_solve(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     // solve NLP
     int solver_status = ocp_nlp_solve(capsule->nlp_solver, capsule->nlp_in, capsule->nlp_out);
@@ -933,7 +929,7 @@ int nmpc_planner_acados_solve(nmpc_planner_solver_capsule* capsule)
 }
 
 
-int nmpc_planner_acados_free(nmpc_planner_solver_capsule* capsule)
+int nmpc_kinematic_controller_acados_free(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     // before destroying, keep some info
     const int N = capsule->nlp_solver_plan->N;
@@ -965,7 +961,7 @@ int nmpc_planner_acados_free(nmpc_planner_solver_capsule* capsule)
 }
 
 
-void nmpc_planner_acados_print_stats(nmpc_planner_solver_capsule* capsule)
+void nmpc_kinematic_controller_acados_print_stats(nmpc_kinematic_controller_solver_capsule* capsule)
 {
     int sqp_iter, stat_m, stat_n, tmp_int;
     ocp_nlp_get(capsule->nlp_config, capsule->nlp_solver, "sqp_iter", &sqp_iter);
@@ -1002,7 +998,7 @@ void nmpc_planner_acados_print_stats(nmpc_planner_solver_capsule* capsule)
 
 }
 
-int nmpc_planner_acados_custom_update(nmpc_planner_solver_capsule* capsule, double* data, int data_len)
+int nmpc_kinematic_controller_acados_custom_update(nmpc_kinematic_controller_solver_capsule* capsule, double* data, int data_len)
 {
     (void)capsule;
     (void)data;
@@ -1015,11 +1011,11 @@ int nmpc_planner_acados_custom_update(nmpc_planner_solver_capsule* capsule, doub
 
 
 
-ocp_nlp_in *nmpc_planner_acados_get_nlp_in(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_in; }
-ocp_nlp_out *nmpc_planner_acados_get_nlp_out(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_out; }
-ocp_nlp_out *nmpc_planner_acados_get_sens_out(nmpc_planner_solver_capsule* capsule) { return capsule->sens_out; }
-ocp_nlp_solver *nmpc_planner_acados_get_nlp_solver(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_solver; }
-ocp_nlp_config *nmpc_planner_acados_get_nlp_config(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_config; }
-void *nmpc_planner_acados_get_nlp_opts(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_opts; }
-ocp_nlp_dims *nmpc_planner_acados_get_nlp_dims(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_dims; }
-ocp_nlp_plan_t *nmpc_planner_acados_get_nlp_plan(nmpc_planner_solver_capsule* capsule) { return capsule->nlp_solver_plan; }
+ocp_nlp_in *nmpc_kinematic_controller_acados_get_nlp_in(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_in; }
+ocp_nlp_out *nmpc_kinematic_controller_acados_get_nlp_out(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_out; }
+ocp_nlp_out *nmpc_kinematic_controller_acados_get_sens_out(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->sens_out; }
+ocp_nlp_solver *nmpc_kinematic_controller_acados_get_nlp_solver(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_solver; }
+ocp_nlp_config *nmpc_kinematic_controller_acados_get_nlp_config(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_config; }
+void *nmpc_kinematic_controller_acados_get_nlp_opts(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_opts; }
+ocp_nlp_dims *nmpc_kinematic_controller_acados_get_nlp_dims(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_dims; }
+ocp_nlp_plan_t *nmpc_kinematic_controller_acados_get_nlp_plan(nmpc_kinematic_controller_solver_capsule* capsule) { return capsule->nlp_solver_plan; }

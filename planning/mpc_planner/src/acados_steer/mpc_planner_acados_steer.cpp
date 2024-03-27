@@ -130,7 +130,7 @@ void MPCPlanner::timer_callback()
       // setting intermediate traj
       y_intermediate[0] = inter_goal_st.x;
       y_intermediate[1] = inter_goal_st.y;
-      y_intermediate[2] = 0.0;
+      y_intermediate[2] = ref_vel;
       y_intermediate[3] = inter_goal_st.yaw;
       y_intermediate[4] = 0.0;
     
