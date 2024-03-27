@@ -6,6 +6,9 @@
     
    <node pkg="lanelet2_mission_planner" name="lanelet2_mission_planner" exec="lanelet2_mission_planner">
    </node>
+   
+   <node pkg="mpc_planner" name="mpc_planner" exec="mpc_planner_acados">
+   </node>
 
   </group>
 </launch>

@@ -33,9 +33,9 @@ ocp.dims.nu  = model.u.size()[0]
 ocp.dims.N   = N
 
 # set cost
-Q_mat = np.diag([2.5, 2.5, 1.2, 0.0])  # [x,y,th, beta]
-R_mat = np.diag([0.1]) # [delta]
-Q_mat_e = np.diag([0, 0, 0.0, 0.0])
+Q_mat = np.diag([3.5, 3.5, 3.5, 0.0])  # [x,y,th, beta]
+R_mat = np.diag([25]) # [delta]
+Q_mat_e = np.diag([0, 0, 0, 0.0])
 
 # set weighting matrices
 ocp.cost.cost_type = "LINEAR_LS"

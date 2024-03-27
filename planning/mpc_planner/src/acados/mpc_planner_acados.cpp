@@ -7,10 +7,6 @@ MPCPlanner::MPCPlanner() : Node("mpc_planner")
 	global_path_sub_ = create_subscription<autoware_planning_msgs::msg::Path>("/lanelet_mission_planner/path", rclcpp::QoS{1},
 																									std::bind(&MPCPlanner::global_path_callback, this, std::placeholders::_1));
 
-	const auto durable_qos = rclcpp::QoS(1).transient_local();
-  map_sub_ = create_subscription<autoware_auto_mapping_msgs::msg::HADMapBin>("/map/vector_map", durable_qos,
-																								std::bind(&MPCPlanner::map_callback, this, std::placeholders::_1));
-
   trajectory_pub_ = create_publisher<autoware_planning_msgs::msg::Trajectory>("/mpc_planner/traj", rclcpp::QoS{10});
 	viz_local_path_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("/visual_local_path", rclcpp::QoS{1});
 
@@ -41,18 +37,6 @@ void MPCPlanner::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg
 {
 	odometry_ = *msg;
 	odometry_recieved_ = true;						
-}
-
-void MPCPlanner::map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr msg)
-{
-  map_ptr_ = msg;
-
-  // Creating lanelet map
-  lanelet_map_ptr_ = std::make_shared<lanelet::LaneletMap>();
-  lanelet::utils::conversion::fromBinMsg(
-    *msg, lanelet_map_ptr_, &traffic_rules_ptr_, &routing_graph_ptr_);
-  lanelet::ConstLanelets all_lanelets = lanelet::utils::query::laneletLayer(lanelet_map_ptr_);
-  road_lanelets_ = lanelet::utils::query::roadLanelets(all_lanelets);
 }
 
 void MPCPlanner::global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr msg)
@@ -154,11 +138,7 @@ void MPCPlanner::timer_callback()
       ocp_nlp_out_get(nlp_config, nlp_dims, nlp_out, ii, "u", &utraj[ii*NU]);
 		}
 
-		if (status == ACADOS_SUCCESS)
-    {
-			RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "nmpc_planner_acados_solve(): SUCCESS!");
-    }
-    else
+		if (status != 0)
     {
 			RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "nmpc_planner_acados_solve() failed with status %d.\n", status);
     }
@@ -306,11 +286,7 @@ autoware_planning_msgs::msg::Trajectory MPCPlanner::getLocalPathFromMPC(double s
     {
 	  	traj_point.acceleration_mps2 = inputs[(i*NX)];
 		  traj_point.heading_rate_rps = inputs[(i*NX)+1];
-      //RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: u0:%f, u1:%f", inputs[(i*NX)], inputs[(i*NX)+1]);
     }
-
-		RCLCPP_INFO(rclcpp::get_logger("mpc_planner"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
-		
 
 		local_traj.points.push_back(traj_point);
 	}

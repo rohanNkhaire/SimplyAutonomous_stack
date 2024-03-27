@@ -10,11 +10,12 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(lanelet2_extension REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(mpc_plugin REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(mpc++ CONFIG REQUIRED)
+find_package(autoware_planning_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 include_directories(include)
 include_directories(${mpc++_INCLUDE_DIRS})
@@ -59,13 +60,13 @@ install(TARGETS mpc_planner_acados_steer
 DESTINATION lib/${PROJECT_NAME})
 
 ament_target_dependencies(mpc_planner rclcpp geometry_msgs autoware_planning_msgs 
-                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension mpc_plugin pluginlib)
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs mpc_plugin pluginlib)
 
 ament_target_dependencies(mpc_planner_acados rclcpp geometry_msgs autoware_planning_msgs 
-                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension)
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs)
                 
 ament_target_dependencies(mpc_planner_acados_steer rclcpp geometry_msgs autoware_planning_msgs 
-                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension)                 
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs)                 
 
 install(
   DIRECTORY include/

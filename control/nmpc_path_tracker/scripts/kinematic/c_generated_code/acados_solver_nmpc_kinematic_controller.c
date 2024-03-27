@@ -404,10 +404,10 @@ void nmpc_kinematic_controller_acados_create_5_set_nlp_in(nmpc_kinematic_control
 
    double* W_0 = calloc(NY0*NY0, sizeof(double));
     // change only the non-zero elements:
-    W_0[0+(NY0) * 0] = 2.5;
-    W_0[1+(NY0) * 1] = 2.5;
-    W_0[2+(NY0) * 2] = 1.2;
-    W_0[4+(NY0) * 4] = 0.1;
+    W_0[0+(NY0) * 0] = 3.5;
+    W_0[1+(NY0) * 1] = 3.5;
+    W_0[2+(NY0) * 2] = 3.5;
+    W_0[4+(NY0) * 4] = 25;
     ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, 0, "W", W_0);
     free(W_0);
     double* Vx_0 = calloc(NY0*NX, sizeof(double));
@@ -433,10 +433,10 @@ void nmpc_kinematic_controller_acados_create_5_set_nlp_in(nmpc_kinematic_control
     free(yref);
     double* W = calloc(NY*NY, sizeof(double));
     // change only the non-zero elements:
-    W[0+(NY) * 0] = 2.5;
-    W[1+(NY) * 1] = 2.5;
-    W[2+(NY) * 2] = 1.2;
-    W[4+(NY) * 4] = 0.1;
+    W[0+(NY) * 0] = 3.5;
+    W[1+(NY) * 1] = 3.5;
+    W[2+(NY) * 2] = 3.5;
+    W[4+(NY) * 4] = 25;
 
     for (int i = 1; i < N; i++)
     {

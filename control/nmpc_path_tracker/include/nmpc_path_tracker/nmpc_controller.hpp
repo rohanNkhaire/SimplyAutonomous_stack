@@ -28,8 +28,6 @@
 #include <tf2/exceptions.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_ros/buffer.h"
 
 #include <memory>
 #include <cmath>
@@ -59,10 +57,6 @@ private:
 	rclcpp::TimerBase::SharedPtr timer_;
 	void timer_callback();
 
-	//tf2
-	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
 	//Acados variables
 	nmpc_kinematic_controller_solver_capsule *acados_ocp_capsule;
 	double* new_time_steps = nullptr;
@@ -79,7 +73,7 @@ private:
 	//variables
 	nav_msgs::msg::Odometry odometry_;
 	nav_msgs::msg::Odometry prev_odometry_;
-	autoware_planning_msgs::msg::Path path_msg_;
+	autoware_planning_msgs::msg::Trajectory path_msg_;
 	double acceleration_;
 	double prev_twist_ = 0.0;
 	bool initialized = false;
@@ -87,11 +81,12 @@ private:
 	bool odometry_recieved_ = false;
 	double init_timer_;
 	double curr_velocity_;
+	double* vel = nullptr;
 
   // Functions
   void setMPCProblem();
 	autoware_control_msgs::msg::Longitudinal setVelocity(const autoware_planning_msgs::msg::Trajectory&);
-	autoware_control_msgs::msg::Lateral setSteering(double[])
+	autoware_control_msgs::msg::Lateral setSteering(double[]);
 	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(double[], double[]);
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 

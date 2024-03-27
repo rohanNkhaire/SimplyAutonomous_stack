@@ -4,13 +4,12 @@ PathTracker::PathTracker() : Node("path_tracker")
 {
 	odom_sub_ = create_subscription<nav_msgs::msg::Odometry>("/localization/kinematic_state", rclcpp::QoS{1}, std::bind(&PathTracker::odom_callback, this, std::placeholders::_1));
 
-	local_path_sub_ = create_subscription<autoware_planning_msgs::msg::Path>("/path_tracker/traj", rclcpp::QoS{1},
+	local_path_sub_ = create_subscription<autoware_planning_msgs::msg::Trajectory>("/mpc_planner/traj", rclcpp::QoS{1},
 																									std::bind(&PathTracker::local_path_callback, this, std::placeholders::_1));
 
   trajectory_pub_ = create_publisher<autoware_planning_msgs::msg::Trajectory>("/nmpc_controller/traj", rclcpp::QoS{10});
-	viz_local_path_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("/visual_local_path", rclcpp::QoS{1});
+	viz_local_path_pub_ = create_publisher<visualization_msgs::msg::MarkerArray>("/visual_controller_path", rclcpp::QoS{1});
   control_cmd_pub_ = create_publisher<autoware_control_msgs::msg::Control>("/nmpc_controller/control_cmd", rclcpp::QoS{10});
-
 
 	// Timer
 	timer_ = create_wall_timer(std::chrono::milliseconds(20), std::bind(&PathTracker::timer_callback, this));
@@ -32,6 +31,8 @@ PathTracker::~PathTracker()
     if (status) {
         printf("nmpc_planner_acados_free_capsule() returned status %d. \n", status);
     }
+
+    delete vel;
 }
 
 void PathTracker::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr msg)
@@ -43,12 +44,11 @@ void PathTracker::odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr ms
 void PathTracker::local_path_callback(const autoware_planning_msgs::msg::Trajectory::ConstSharedPtr msg)
 {
 	path_msg_ = *msg;
-	path_recieved_ = true;
 }
 
 void PathTracker::timer_callback()
 {
-	if(path_recieved_)
+	if(!path_msg_.points.empty() && odometry_recieved_)
 	{
 
 		// initialization for state values
@@ -69,16 +69,21 @@ void PathTracker::timer_callback()
     double xtraj[164];
     double utraj[40];
 
-    // solve ocp in loop
+    // set velocity
+    vel = new double(std::max(0.1, odometry_.twist.twist.linear.x));
 
-		RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "START POINT: x:%f, y:%f, v:%f, th:%f", x_init[0], x_init[1], x_init[2], x_init[3]);
-		RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "GOAL POINT: x:%f, y:%f, v:%f, th:%f", yref[0], yref[1], yref[2], yref[3]);
+		//RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "START POINT: x:%f, y:%f, v:%f, th:%f", x_init[0], x_init[1], x_init[2], x_init[3]);
+		//RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "GOAL POINT: x:%f, y:%f, v:%f, th:%f", yref[0], yref[1], yref[2], yref[3]);
+
+    // solve ocp in loop
 		// initial condition
 		ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "lbx", x_init);
   	ocp_nlp_constraints_model_set(nlp_config, nlp_dims, nlp_in, 0, "ubx", x_init);
 
     // Set Reference
-    int end_idx = std::min(N, path_msg_.points.size());
+    int path_length = path_msg_.points.size();
+    int end_idx = std::min(N, path_length);
+
     double yref[4];
 		yref[0] = path_msg_.points.at(end_idx-1).pose.position.x;
 		yref[1] = path_msg_.points.at(end_idx-1).pose.position.y;
@@ -89,8 +94,7 @@ void PathTracker::timer_callback()
 		{
       ocp_nlp_cost_model_set(nlp_config, nlp_dims, nlp_in, i, "yref", yref);
 		}
-    
-    
+
     for(int i = 0; i < end_idx; ++i)
 		{
       double y_intermediate[4];
@@ -108,7 +112,8 @@ void PathTracker::timer_callback()
     {
       ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "x", x_init);
       ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, i, "u", u0);
-    }
+      nmpc_kinematic_controller_acados_update_params(acados_ocp_capsule, i, vel, NMPC_KINEMATIC_CONTROLLER_NP);
+    }   
 
     ocp_nlp_out_set(nlp_config, nlp_dims, nlp_out, N, "x", x_init);
     status = nmpc_kinematic_controller_acados_solve(acados_ocp_capsule);
@@ -164,7 +169,7 @@ void PathTracker::setMPCProblem()
 {
   acados_ocp_capsule = nmpc_kinematic_controller_acados_create_capsule();
   // there is an opportunity to change the number of shooting intervals in C without new code generation
-  N = NMPC_kinematic_controller_N;
+  N = NMPC_KINEMATIC_CONTROLLER_N;
   // allocate the array and fill it accordingly
   status = nmpc_kinematic_controller_acados_create_with_discretization(acados_ocp_capsule, N, new_time_steps);
   if (status)
@@ -179,6 +184,7 @@ void PathTracker::setMPCProblem()
   nlp_out = nmpc_kinematic_controller_acados_get_nlp_out(acados_ocp_capsule);
   nlp_solver = nmpc_kinematic_controller_acados_get_nlp_solver(acados_ocp_capsule);
   nlp_opts = nmpc_kinematic_controller_acados_get_nlp_opts(acados_ocp_capsule);
+
 }
 
 autoware_control_msgs::msg::Longitudinal PathTracker::setVelocity(const autoware_planning_msgs::msg::Trajectory& path)
@@ -186,7 +192,7 @@ autoware_control_msgs::msg::Longitudinal PathTracker::setVelocity(const autoware
 	autoware_control_msgs::msg::Longitudinal longitudinal_msg;
 
   longitudinal_msg.stamp = path.header.stamp;
-  longitudinal_msg.velocity = path.points.at(0).longitudinal_velocity_mps;
+  longitudinal_msg.velocity = path.points.at(1).longitudinal_velocity_mps;
   longitudinal_msg.acceleration = path.points.at(0).acceleration_mps2;
   longitudinal_msg.is_defined_acceleration = true;
   longitudinal_msg.is_defined_jerk = false;
@@ -230,7 +236,7 @@ autoware_planning_msgs::msg::Trajectory PathTracker::getLocalPathFromMPC(double 
       RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "OPT TRAJ: u0:%f", inputs[i]);
     }
 
-		//RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "OPT TRAJ: x:%f, y:%f, v:%f, th:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2], states[(i*NX)+3]);
+		RCLCPP_INFO(rclcpp::get_logger("path_tracker"), "OPT TRAJ: x:%f, y:%f, v:%f", states[(i*NX)], states[(i*NX)+1], states[(i*NX)+2]);
 		
 
 		local_traj.points.push_back(traj_point);
