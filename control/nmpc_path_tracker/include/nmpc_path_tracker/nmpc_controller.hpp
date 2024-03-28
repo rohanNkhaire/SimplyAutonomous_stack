@@ -1,16 +1,16 @@
 #ifndef MPC_PLANNER__MPC_PLANNER_HPP_
 #define MPC_PLANNER__MPC_PLANNER_HPP_
 
-#define NX     NMPC_PLANNER_NX
-#define NU     NMPC_PLANNER_NU
-#define NBX0   NMPC_PLANNER_NBX0
+#define NU     NMPC_KINEMATIC_CONTROLLER_NU
+#define NX     NMPC_KINEMATIC_CONTROLLER_NX
+#define NBX0   NMPC_KINEMATIC_CONTROLLER_NBX0
 
 #include <rclcpp/rclcpp.hpp>
 
 // Msgs
 #include <nav_msgs/msg/odometry.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
-#include <autoware_planning_msgs/msg/path.hpp>
+#include <autoware_control_msgs/msg/control.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
 
 // acados
@@ -18,7 +18,7 @@
 #include "acados/utils/math.h"
 #include "acados_c/ocp_nlp_interface.h"
 #include "acados_c/external_function_interface.h"
-#include "acados_solver_nmpc_planner.h"
+#include "acados_solver_nmpc_kinematic_controller.h"
 
 // blasfeo
 #include "blasfeo/include/blasfeo_d_aux_ext_dep.h"
@@ -28,42 +28,37 @@
 #include <tf2/exceptions.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
-#include "tf2_ros/transform_listener.h"
-#include "tf2_ros/buffer.h"
 
 #include <memory>
 #include <cmath>
 #include <array>
 
-class MPCPlanner : public rclcpp::Node
+class PathTracker : public rclcpp::Node
 {
 public:	
-	explicit MPCPlanner();
-	~MPCPlanner();
+	explicit PathTracker();
+	~PathTracker();
 
 private:
 	//Subscribers
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-	rclcpp::Subscription<autoware_planning_msgs::msg::Path>::SharedPtr global_path_sub_;
+	rclcpp::Subscription<autoware_planning_msgs::msg::Trajectory>::SharedPtr local_path_sub_;
 
 	//Publishers
 	rclcpp::Publisher<autoware_planning_msgs::msg::Trajectory>::SharedPtr trajectory_pub_;
 	rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr viz_local_path_pub_;
+	rclcpp::Publisher<autoware_control_msgs::msg::Control>::SharedPtr control_cmd_pub_;
 
 	// callbacks
 	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr);
-	void global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr);
+	void local_path_callback(const autoware_planning_msgs::msg::Trajectory::ConstSharedPtr);
 
 	//timer
 	rclcpp::TimerBase::SharedPtr timer_;
 	void timer_callback();
 
-	//tf2
-	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
 	//Acados variables
-	nmpc_planner_solver_capsule *acados_ocp_capsule;
+	nmpc_kinematic_controller_solver_capsule *acados_ocp_capsule;
 	double* new_time_steps = nullptr;
 	int status, N;
 	ocp_nlp_config *nlp_config;
@@ -78,7 +73,7 @@ private:
 	//variables
 	nav_msgs::msg::Odometry odometry_;
 	nav_msgs::msg::Odometry prev_odometry_;
-	autoware_planning_msgs::msg::Path path_msg_;
+	autoware_planning_msgs::msg::Trajectory path_msg_;
 	double acceleration_;
 	double prev_twist_ = 0.0;
 	bool initialized = false;
@@ -86,30 +81,16 @@ private:
 	bool odometry_recieved_ = false;
 	double init_timer_;
 	double curr_velocity_;
-	double LOOK_AHEAD_TIME = 4.0;
-	int MIN_GOAL_IDX = 6;
-	int radius_inf = 500;
-
-	struct refPose {
-		double x;
-		double y;
-		double yaw;
-	};
+	double* vel = nullptr;
 
   // Functions
   void setMPCProblem();
-  void setupTF();
-	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);
-	int getCurrentIndex(std::vector<autoware_planning_msgs::msg::PathPoint>&, nav_msgs::msg::Odometry&);
-	double setVelocity(const int&, const autoware_planning_msgs::msg::Path&);
-	double getCurvature(std::array<int, 3>&, const autoware_planning_msgs::msg::Path&);
-	size_t findNearestIndex(const std::vector<autoware_planning_msgs::msg::PathPoint>&, const geometry_msgs::msg::Point&);
-	double calcSquaredDistance2d(const geometry_msgs::msg::Point&, const geometry_msgs::msg::Point&);
+	autoware_control_msgs::msg::Longitudinal setVelocity(const autoware_planning_msgs::msg::Trajectory&);
+	autoware_control_msgs::msg::Lateral setSteering(double[]);
 	autoware_planning_msgs::msg::Trajectory getLocalPathFromMPC(double[], double[]);
 	geometry_msgs::msg::Quaternion createQuaternionFromYaw(const double&);
 	void createLocalPathMarker(const autoware_planning_msgs::msg::Trajectory&, 
-																		const geometry_msgs::msg::Pose&, visualization_msgs::msg::MarkerArray&);
-	refPose transformGoalToBase(const nav_msgs::msg::Odometry&, const geometry_msgs::msg::Pose&);
+																		visualization_msgs::msg::MarkerArray&);
 
 };
 

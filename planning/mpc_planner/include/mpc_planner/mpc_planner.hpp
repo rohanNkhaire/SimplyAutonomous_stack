@@ -8,7 +8,6 @@
 
 // Msgs
 #include <nav_msgs/msg/odometry.hpp>
-#include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
 #include <autoware_planning_msgs/msg/trajectory.hpp>
 #include <autoware_planning_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -24,17 +23,6 @@
 #include "tf2_ros/transform_listener.h"
 #include "tf2_ros/buffer.h"
 
-// Importing lanelet2 headers
-#include <lanelet2_extension/utility/message_conversion.hpp>
-#include <lanelet2_extension/utility/query.hpp>
-#include <lanelet2_extension/utility/utilities.hpp>
-#include <lanelet2_extension/visualization/visualization.hpp>
-#include <lanelet2_core/LaneletMap.h>
-#include <lanelet2_core/geometry/Lanelet.h>
-#include <lanelet2_routing/Route.h>
-#include <lanelet2_routing/RoutingCost.h>
-#include <lanelet2_traffic_rules/TrafficRulesFactory.h>
-
 #include <memory>
 #include <cmath>
 #include <array>
@@ -47,7 +35,6 @@ public:
 private:
 	//Subscribers
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
-	rclcpp::Subscription<autoware_auto_mapping_msgs::msg::HADMapBin>::SharedPtr map_sub_;
 	rclcpp::Subscription<autoware_planning_msgs::msg::Path>::SharedPtr global_path_sub_;
 
 	//Publishers
@@ -56,7 +43,6 @@ private:
 
 	// callbacks
 	void odom_callback(const nav_msgs::msg::Odometry::ConstSharedPtr);
-	void map_callback(const autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr);
 	void global_path_callback(const autoware_planning_msgs::msg::Path::ConstSharedPtr);
 
 	//timer
@@ -66,7 +52,6 @@ private:
 	//variables
 	nav_msgs::msg::Odometry odometry_;
 	nav_msgs::msg::Odometry prev_odometry_;
-	autoware_auto_mapping_msgs::msg::HADMapBin::ConstSharedPtr map_ptr_;
 	autoware_planning_msgs::msg::Path path_msg_;
 	double acceleration_;
 	double prev_twist_ = 0.0;
@@ -88,12 +73,6 @@ private:
 	//tf2
 	std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
   	std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
-
-	// Lanelet
-	lanelet::LaneletMapPtr lanelet_map_ptr_;
-  lanelet::routing::RoutingGraphPtr routing_graph_ptr_;
-  lanelet::traffic_rules::TrafficRulesPtr traffic_rules_ptr_;
-  lanelet::ConstLanelets road_lanelets_;
 
   // Functions
 	std::tuple<geometry_msgs::msg::Pose, int> setGoal(autoware_planning_msgs::msg::Path&, double&, int&);

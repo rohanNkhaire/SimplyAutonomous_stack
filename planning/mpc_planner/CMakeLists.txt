@@ -10,11 +10,12 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
-find_package(lanelet2_extension REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 find_package(mpc_plugin REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(mpc++ CONFIG REQUIRED)
+find_package(autoware_planning_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
 include_directories(include)
 include_directories(${mpc++_INCLUDE_DIRS})
@@ -22,10 +23,12 @@ include_directories(${mpc++_INCLUDE_DIRS})
 # Acados
 set(acados_include "/home/rohan/tools/acados/include")
 set(acados_lib "/home/rohan/tools/acados/lib")
-set(full_model_build ${PROJECT_SOURCE_DIR}/scripts/c_generated_code)
+set(omegadot_model_build ${PROJECT_SOURCE_DIR}/scripts/acados/c_generated_code)
+set(steer_model_build ${PROJECT_SOURCE_DIR}/scripts/acados_steer/c_generated_code)
 
 include_directories(
-            ${full_model_build}
+            ${omegadot_model_build}
+            ${steer_model_build}
             ${acados_include}
             ${acados_include}/blasfeo/include/
             ${acados_include}/hpipm/include/
@@ -33,14 +36,18 @@ include_directories(
             ${acados_include}/qpOASES_e/
 )
 
-link_directories(${full_model_build})
+link_directories(${omegadot_model_build})
+link_directories(${steer_model_build})
 
-add_executable(mpc_planner src/mpc_planner.cpp
-                            src/mpc_planner_node.cpp)
 
-add_executable(mpc_planner_acados src/mpc_planner_acados.cpp
-                                  src/mpc_planner_acados_node.cpp)    
-                                  
+add_executable(mpc_planner src/libmpc/mpc_planner.cpp
+                            src/libmpc/mpc_planner_node.cpp)
+
+add_executable(mpc_planner_acados src/acados/mpc_planner_acados.cpp
+                                  src/acados/mpc_planner_acados_node.cpp)
+
+add_executable(mpc_planner_acados_steer src/acados_steer/mpc_planner_acados_steer.cpp
+                                  src/acados_steer/mpc_planner_acados_steer_node.cpp)                                    
                                   
 
 install(TARGETS mpc_planner
@@ -49,31 +56,51 @@ DESTINATION lib/${PROJECT_NAME})
 install(TARGETS mpc_planner_acados
 DESTINATION lib/${PROJECT_NAME})
 
+install(TARGETS mpc_planner_acados_steer
+DESTINATION lib/${PROJECT_NAME})
+
 ament_target_dependencies(mpc_planner rclcpp geometry_msgs autoware_planning_msgs 
-                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension mpc_plugin pluginlib)
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs mpc_plugin pluginlib)
 
 ament_target_dependencies(mpc_planner_acados rclcpp geometry_msgs autoware_planning_msgs 
-                tf2_ros tf2 tf2_geometry_msgs lanelet2_extension)                
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs)
+                
+ament_target_dependencies(mpc_planner_acados_steer rclcpp geometry_msgs autoware_planning_msgs 
+                tf2_ros tf2 tf2_geometry_msgs visualization_msgs)                 
 
 install(
   DIRECTORY include/
   DESTINATION include
 )
 
-install(DIRECTORY scripts/c_generated_code/
+install(DIRECTORY scripts/acados/c_generated_code/
     DESTINATION include/${PROJECT_NAME}/${CUR_DIRECTORY_NAME}/
     FILES_MATCHING PATTERN "*.h")
 
 
-install(DIRECTORY scripts/c_generated_code/
+install(DIRECTORY scripts/acados/c_generated_code/
     DESTINATION lib 
     FILES_MATCHING PATTERN "*.so")
+
+install(DIRECTORY scripts/acados_steer/c_generated_code/
+    DESTINATION include/${PROJECT_NAME}/${CUR_DIRECTORY_NAME}/
+    FILES_MATCHING PATTERN "*.h")
+
+
+install(DIRECTORY scripts/acados_steer/c_generated_code/
+    DESTINATION lib 
+    FILES_MATCHING PATTERN "*.so")    
 
 
 target_link_libraries(${PROJECT_NAME} Eigen3::Eigen mpc++)
 
 target_link_libraries(mpc_planner_acados 
-                    ${full_model_build}/libacados_ocp_solver_nmpc_planner.so
+                    ${omegadot_model_build}/libacados_ocp_solver_nmpc_planner.so
+                    ${acados_lib}/libacados.so
+) 
+
+target_link_libraries(mpc_planner_acados_steer
+                    ${steer_model_build}/libacados_ocp_solver_nmpc_planner_steer.so
                     ${acados_lib}/libacados.so
 ) 
 
