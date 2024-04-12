@@ -1,0 +1,18 @@
+<launch>
+  <!-- Parameter files -->
+
+  <group>
+    <push-ros-namespace namespace="sensing"/>
+    
+   <node pkg="pointcloud_preprocessor_gpu" name="crop_box_filter" exec="cropbox_filter" output="screen">
+     <param name="min_x" value="-5.0"/>
+     <param name="max_x" value="5.0"/>
+     <param name="min_y" value="-5.0"/>
+     <param name="max_y" value="5.0"/>
+     <param name="min_z" value="-5.0"/>
+     <param name="max_z" value="5.0"/>
+     <param name="output_frame" value="base_link"/>
+   </node>
+
+  </group>
+</launch>

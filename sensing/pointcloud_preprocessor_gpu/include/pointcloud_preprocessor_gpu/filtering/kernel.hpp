@@ -1,9 +1,8 @@
 #ifndef PREPROCESS_KERNEL_H_
 #define PREPROCESS_KERNEL_H_
 
-#include <cuda.hpp>
+#include <cuda_runtime.h>
 #include <iostream>
-#include <cuda_fp16.hpp>
 #include <cuda_runtime_api.h>
 
 typedef enum
@@ -28,7 +27,7 @@ typedef enum
     }                                                             \
 }
 
-cudaError_t generate_filtered_pointcloud(int* filtered_points, int* points, size_t points_size,
+cudaError_t generate_filtered_pointcloud(float* filtered_points, float* points, size_t points_size,
         float min_x_range, float max_x_range,
         float min_y_range, float max_y_range,
         float min_z_range, float max_z_range,
